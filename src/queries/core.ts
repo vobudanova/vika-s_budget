@@ -69,7 +69,7 @@ export async function getMonthTotals(ym: string): Promise<MonthTotals> {
       (SELECT COALESCE(sum(amount),0) FROM v_expenses_actual WHERE date BETWEEN ${from} AND ${to} AND row_type = 'trip') AS trips,
       (SELECT COALESCE(sum(amount),0) FROM v_expenses_accrued WHERE date BETWEEN ${from} AND ${to} AND src = 'amortization') AS amortization,
       (SELECT COALESCE(sum(amount),0) FROM transactions WHERE kind = 'income' AND date BETWEEN ${from} AND ${to}) AS income,
-      (SELECT COALESCE(sum(amount),0) FROM transactions WHERE kind = 'reimbursement' AND date BETWEEN ${from} AND ${to}) AS ks_reimbursed,
+      (SELECT COALESCE(sum(amount),0) FROM fund_movements WHERE kind = 'reimbursement' AND date BETWEEN ${from} AND ${to}) AS ks_reimbursed,
       (SELECT COALESCE(sum(amount),0) FROM transactions WHERE kind = 'expense' AND covered AND date BETWEEN ${from} AND ${to}) AS covered,
       (SELECT COALESCE(sum(amount),0) FROM transactions WHERE kind = 'saving' AND date BETWEEN ${from} AND ${to}) AS savings
   `);

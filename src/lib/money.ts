@@ -2,8 +2,9 @@ const NBSP = ' ';
 
 /** «12 345,67» — всегда две копейки, разряды через неразрывный пробел. */
 export function fmtNumber(value: number | string, digits = 2): string {
-  const n = typeof value === 'string' ? Number(value) : value;
+  let n = typeof value === 'string' ? Number(value) : value;
   if (!Number.isFinite(n)) return '—';
+  if (n === 0) n = 0; // убираем «-0»
   return n
     .toLocaleString('ru-RU', { minimumFractionDigits: digits, maximumFractionDigits: digits })
     .replace(/\s/g, NBSP);
