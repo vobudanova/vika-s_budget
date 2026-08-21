@@ -37,12 +37,12 @@ export default async function DashboardPage() {
   const monthName = RU_MONTHS[Number(ym.slice(5, 7)) - 1];
 
   const tiles = [
-    { href: '/balance', label: 'Баланс', icon: <IconWallet size={46} stroke={1.5} /> },
-    { href: `/year/${year}`, label: year, icon: <IconChartHistogram size={46} stroke={1.5} /> },
-    { href: `/month/${ym}`, label: cap1(monthName), icon: <IconCalendarMonth size={46} stroke={1.5} /> },
-    { href: '/assets', label: 'Амортизация', icon: <IconHourglassLow size={46} stroke={1.5} /> },
-    { href: '/fund', label: 'КС', icon: <IconPigMoney size={46} stroke={1.5} /> },
-    { href: '/income', label: 'Доходы', icon: <IconTrendingUp size={46} stroke={1.5} /> },
+    { href: '/balance', label: 'Баланс', icon: <IconWallet size="1em" stroke={1.5} /> },
+    { href: `/year/${year}`, label: year, icon: <IconChartHistogram size="1em" stroke={1.5} /> },
+    { href: `/month/${ym}`, label: cap1(monthName), icon: <IconCalendarMonth size="1em" stroke={1.5} /> },
+    { href: '/assets', label: 'Амортизация', icon: <IconHourglassLow size="1em" stroke={1.5} /> },
+    { href: '/fund', label: 'КС', icon: <IconPigMoney size="1em" stroke={1.5} /> },
+    { href: '/income', label: 'Доходы', icon: <IconTrendingUp size="1em" stroke={1.5} /> },
   ];
 
   return (
@@ -73,20 +73,27 @@ export default async function DashboardPage() {
         )}
       </Stack>
 
-      {/* Навигация: квадратные плитки — 2 в ряд на мобильном, 3 на широком */}
-      <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="md">
+      {/* Навигация: квадратные плитки — 2 в ряд на мобильном, 3 на широком.
+          Размеры иконки и текста привязаны к ширине квадрата (container queries). */}
+      <SimpleGrid cols={{ base: 2, sm: 3 }} spacing={{ base: 'md', sm: 'xl' }}>
         {tiles.map((t) => (
           <Link key={t.href} href={t.href} className="dash-link">
             <Paper
               className="dash-tile"
               p="md"
-              style={{ aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              style={{
+                aspectRatio: '1 / 1',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                containerType: 'inline-size',
+              }}
             >
-              <Stack gap={14} align="center">
-                <Text c="ink.7" lh={1} component="span">
+              <Stack gap="7cqw" align="center">
+                <Text c="ink.7" lh={1} component="span" style={{ fontSize: 'clamp(30px, 17cqw, 56px)' }}>
                   {t.icon}
                 </Text>
-                <Text fz={{ base: 20, sm: 30 }} fw={600} lh={1.15} ta="center">
+                <Text fw={400} lh={1.15} ta="center" style={{ fontSize: 'clamp(15px, 8.6cqw, 30px)' }}>
                   {t.label}
                 </Text>
               </Stack>
