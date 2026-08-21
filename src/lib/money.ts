@@ -1,13 +1,14 @@
-const NBSP = ' ';
+// Thin space (U+2009) — разделитель разрядов и отбивка знака валюты
+const THIN = ' ';
 
-/** «12 345,67» — всегда две копейки, разряды через неразрывный пробел. */
+/** «12 345,67» — разряды через thin space. */
 export function fmtNumber(value: number | string, digits = 2): string {
   let n = typeof value === 'string' ? Number(value) : value;
   if (!Number.isFinite(n)) return '—';
   if (n === 0) n = 0; // убираем «-0»
   return n
     .toLocaleString('ru-RU', { minimumFractionDigits: digits, maximumFractionDigits: digits })
-    .replace(/\s/g, NBSP);
+    .replace(/\s/g, THIN);
 }
 
 /** «12 345,67 ₽»; целые суммы — без копеек: «12 345 ₽». */
@@ -16,7 +17,7 @@ export function fmtMoney(value: number | string, currency: 'RUB' | 'USD' = 'RUB'
   if (!Number.isFinite(n)) return '—';
   const digits = Math.abs(n % 1) < 0.005 ? 0 : 2;
   const sign = currency === 'USD' ? '$' : '₽';
-  return `${fmtNumber(n, digits)}${NBSP}${sign}`;
+  return `${fmtNumber(n, digits)}${THIN}${sign}`;
 }
 
 /** Знак «+» для положительных — для лент операций по счёту. */
