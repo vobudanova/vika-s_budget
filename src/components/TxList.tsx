@@ -52,7 +52,10 @@ function TxLine({ t, showDate, onEdit }: { t: TxRow; showDate: boolean; onEdit: 
   const [pending, startTransition] = useTransition();
   const { title, detail } = txLabel(t);
   const sign = txSign(t);
-  const displayAmount = sign === 0 ? t.amount : sign * Math.abs(t.amount) * (t.amount < 0 ? -1 : 1);
+  // Расходы показываем как введены (возврат — отрицательный, зелёный),
+  // приходы — со знаком «+», внутренние переводы — как есть.
+  const isRefund = sign < 0 && t.amount < 0;
+  const displayValue = sign > 0 ? Math.abs(t.amount) : t.amount;
 
   const remove = () =>
     startTransition(async () => {
@@ -81,11 +84,11 @@ function TxLine({ t, showDate, onEdit }: { t: TxRow; showDate: boolean; onEdit: 
       </Stack>
       <Group gap={4} wrap="nowrap">
         <Money
-          value={sign === 0 ? t.amount : displayAmount}
+          value={displayValue}
           signed={sign > 0}
           fz="sm"
           fw={500}
-          c={sign > 0 ? 'ink.7' : t.amount < 0 ? 'ink.7' : undefined}
+          c={sign > 0 || isRefund ? 'ink.7' : undefined}
         />
         <Tooltip label="Изменить">
           <ActionIcon variant="subtle" color="gray" size="sm" onClick={onEdit} aria-label="Изменить">

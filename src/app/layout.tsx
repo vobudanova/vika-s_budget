@@ -1,9 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Golos_Text, JetBrains_Mono } from 'next/font/google';
-import { ColorSchemeScript, MantineProvider, mantineHtmlProps } from '@mantine/core';
-import { Notifications } from '@mantine/notifications';
-import { DatesProvider } from '@mantine/dates';
-import 'dayjs/locale/ru';
+import { ColorSchemeScript, mantineHtmlProps } from '@mantine/core';
 
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
@@ -11,7 +8,7 @@ import '@mantine/notifications/styles.css';
 import '@mantine/charts/styles.css';
 import './globals.css';
 
-import { theme } from './theme';
+import { Providers } from './providers';
 
 const golos = Golos_Text({
   subsets: ['latin', 'cyrillic'],
@@ -46,12 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ColorSchemeScript forceColorScheme="light" />
       </head>
       <body>
-        <MantineProvider theme={theme} forceColorScheme="light">
-          <DatesProvider settings={{ locale: 'ru', firstDayOfWeek: 1 }}>
-            <Notifications position="top-right" autoClose={3500} />
-            {children}
-          </DatesProvider>
-        </MantineProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
