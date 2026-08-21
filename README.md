@@ -1,36 +1,103 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Вика.Финансы
 
-## Getting Started
+Персональное приложение учёта личных финансов: ежедневные траты, амортизация покупок,
+накопительные цели КАП, фонд КС (краткосрочные сбережения), балансы счетов со сверкой,
+прогноз на следующий месяц и годовая сводка двумя методами учёта — фактическим и начисленным.
 
-First, run the development server:
+Заменяет систему Excel-файлов «Бюджет-эксель»; проектный документ с моделью данных и
+глоссарием — в артефакте «Вика.Финансы» (claude.ai).
+
+## Стек
+
+- **Next.js 16** (App Router, React Server Components + server actions)
+- **Mantine 9** — UI, светлая тема «зелёные чернила», шрифты Golos Text + JetBrains Mono
+- **Drizzle ORM + PostgreSQL** (локально — Homebrew Postgres, в проде — Neon)
+- **Vercel** — продакшен
+
+## Локальный запуск
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+createdb vika_budget                # локальный Postgres 16+
+cp .env.example .env.local          # заполнить значения
+npm run db:migrate                  # таблицы + view
+npm run db:seed                     # справочники (категории, счета, источники, статьи КС)
+npm run dev                         # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Переменные `.env.local`:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Переменная | Значение |
+|---|---|
+| `DATABASE_URL` | `postgres://<user>@localhost:5432/vika_budget` |
+| `AUTH_PASSWORD` | пароль входа на сайт |
+| `AUTH_SECRET` | `openssl rand -hex 32` |
+| `APP_TZ` | `Europe/Moscow` — определяет «сегодня» |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Импорт истории из Excel
 
-## Learn More
+Скрипт ждёт папку `/Users/olegkozyrev/Downloads/Бюджет-эксель` (месячные файлы, реестр
+амортизации, доходы, фонд КС):
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run import:excel
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Импорт идемпотентен: данные очищаются и загружаются заново, справочники сохраняются.
+Детали маппинга и допущения — в `docs/IMPORT.md`. В конце скрипт печатает отчёт сверки
+итогов с Excel.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Деплой на Vercel + Neon
 
-## Deploy on Vercel
+1. Создать проект в [Neon](https://neon.tech), взять **pooled** connection string
+   (host вида `...-pooler.<region>.neon.tech`).
+2. Применить схему к прод-базе (локально):
+   `DATABASE_URL='<neon-pooled-url>' npx tsx src/db/migrate.ts` и
+   `DATABASE_URL='<neon-pooled-url>' npx tsx src/db/seed.ts`.
+3. Импортировать данные (по желанию): `DATABASE_URL='<neon-pooled-url>' npx tsx scripts/import-excel.ts`.
+4. В Vercel: Import Git Repository → этот репозиторий; задать env-переменные
+   `DATABASE_URL`, `AUTH_PASSWORD`, `AUTH_SECRET`, `APP_TZ` (Production).
+5. Deploy. Все страницы динамические, работают в Node runtime.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Скрипты
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Команда | Что делает |
+|---|---|
+| `npm run dev` | dev-сервер |
+| `npm run build` / `start` | продакшен-сборка / запуск |
+| `npm run db:generate` | сгенерировать миграцию из `src/db/schema.ts` |
+| `npm run db:migrate` | применить миграции из `drizzle/` |
+| `npm run db:seed` | засеять справочники (идемпотентно) |
+| `npm run import:excel` | импорт истории из Excel |
+
+## Структура
+
+```
+src/
+  db/          схема Drizzle, миграции (drizzle/), seed
+  lib/         деньги (thin space, парсер выражений «100+200»), даты (clamp 29–31),
+               график амортизации, цель КАП, auth (jose)
+  actions/     server actions: транзакции, покупки, КАП, фонд КС, снапшоты, справочники
+  queries/     чтение: балансы (view), матрица месяца, статусы КАП, фонд, прогноз, год
+  components/  Shell (AppShell), формы дня, карточки КАП, таблицы
+  app/(app)/   экраны: дашборд, day/[date], month/[ym], assets, cap, fund,
+               forecast, income, accounts, year/[y], settings
+scripts/       import-excel.ts
+```
+
+## Доменные правила (краткая шпаргалка)
+
+- **Два метода учёта**: «фактические» = траты + покупки целиком; «начисленные» = траты +
+  амортизация. Компенсации из КС и «теневые» (покрытые компенсацией) расходы не входят
+  ни в один метод.
+- **Амортизация**: первое начисление в день покупки, 29–31-е прижимаются к концу
+  короткого месяца; сумма графика точно равна цене; перепродажа уменьшает базу задним
+  числом (не доход); досрочное завершение обрезает будущие начисления.
+- **КАП**: цель = цена × i^(срок/12), i настраивается (только для будущих целей);
+  взносы — флажками по месяцам, на счёт уходят единым платежом; статусы вычисляются
+  (не начато / в процессе / не хватает / ждёт / потрачено); достигнутая цель ждёт конца
+  месяца последнего взноса; тратится возвратом на счёт или перетоком в другие КАП (Σ=0).
+- **Фонд КС**: статьи с планом; пополнение раз в месяц одним переводом; компенсация — не
+  расход, списывает статью и счёт КС **или** зачитывается в следующем пополнении.
+- **Балансы**: счёт = последний сверочный снапшот + операции после него; деньги фондов,
+  размещённые в других инструментах, помечаются и учитываются в сверке фондов.
