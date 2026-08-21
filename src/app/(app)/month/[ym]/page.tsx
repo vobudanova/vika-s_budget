@@ -9,8 +9,15 @@ import { fmtMoney } from '@/lib/money';
 
 export const dynamic = 'force-dynamic';
 
-export default async function MonthPage({ params }: { params: Promise<{ ym: string }> }) {
+export default async function MonthPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ ym: string }>;
+  searchParams: Promise<{ method?: string }>;
+}) {
   const { ym } = await params;
+  const { method } = await searchParams;
   if (!isValidYM(ym)) notFound();
   const today = todayISO();
 
@@ -35,7 +42,14 @@ export default async function MonthPage({ params }: { params: Promise<{ ym: stri
         </Stack>
         <MonthSwitcher ym={ym} currentYm={ymOf(today)} />
       </Group>
-      <MonthView ym={ym} actual={actual} accrued={accrued} txs={txs} today={today} />
+      <MonthView
+        ym={ym}
+        actual={actual}
+        accrued={accrued}
+        txs={txs}
+        today={today}
+        initialMethod={method === 'accrued' ? 'accrued' : 'actual'}
+      />
     </Stack>
   );
 }

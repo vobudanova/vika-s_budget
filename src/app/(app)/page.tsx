@@ -1,157 +1,103 @@
+import Link from 'next/link';
+import { Box, Paper, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import {
-  Card,
-  Divider,
-  Group,
-  SimpleGrid,
-  Stack,
-  Table,
-  TableTbody,
-  TableTd,
-  TableTr,
-  Text,
-  Title,
-} from '@mantine/core';
-import { AnchorLink, ButtonLink } from '@/components/links';
-import { todayISO, ymOf, dateTitleFull, dateTitle, ymTitle } from '@/lib/dates';
+  IconCalendarMonth,
+  IconChartHistogram,
+  IconHourglassLow,
+  IconPigMoney,
+  IconTrendingUp,
+  IconWallet,
+} from '@tabler/icons-react';
+import { todayISO, ymOf, dateTitle, RU_MONTHS } from '@/lib/dates';
 import { fmtMoney } from '@/lib/money';
 import {
   getAccountBalances,
   getDayTransactions,
-  getMonthTotals,
   getReference,
   splitBalances,
 } from '@/queries/core';
 import { Money } from '@/components/Money';
-import { QuickExpense } from '@/components/QuickExpense';
-import { TxList } from '@/components/TxList';
+import { NewDayDrawer } from '@/components/NewDayDrawer';
 import { categorySelectData } from '@/components/tx-helpers';
-import { CardLabel } from '@/components/CardLabel';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   const today = todayISO();
   const ym = ymOf(today);
-  const [balances, totals, dayTxs, ref] = await Promise.all([
+  const year = today.slice(0, 4);
+  const [balances, dayTxs, ref] = await Promise.all([
     getAccountBalances(),
-    getMonthTotals(ym),
     getDayTransactions(today),
     getReference(today),
   ]);
   const { totalRub, totalUsd } = splitBalances(balances);
   const cats = categorySelectData(ref.groups, ref.categories);
   const defaultAccount = ref.accounts.find((a) => a.type === 'checking') ?? null;
-  const mainAccounts = balances.filter((b) =>
-    ['checking', 'credit_card', 'savings_cap', 'savings_ks', 'cash'].includes(b.type),
-  );
-  const otherTotal = balances
-    .filter((b) => !mainAccounts.includes(b) && b.currency === 'RUB' && b.includeInTotal)
-    .reduce((s, b) => s + b.balance, 0);
+  const monthName = RU_MONTHS[Number(ym.slice(5, 7)) - 1];
+
+  const tiles = [
+    { href: '/balance', label: 'Баланс', icon: <IconWallet size={46} stroke={1.5} /> },
+    { href: `/year/${year}`, label: year, icon: <IconChartHistogram size={46} stroke={1.5} /> },
+    { href: `/month/${ym}`, label: cap1(monthName), icon: <IconCalendarMonth size={46} stroke={1.5} /> },
+    { href: '/assets', label: 'Амортизация', icon: <IconHourglassLow size={46} stroke={1.5} /> },
+    { href: '/fund', label: 'КС', icon: <IconPigMoney size={46} stroke={1.5} /> },
+    { href: '/income', label: 'Доходы', icon: <IconTrendingUp size={46} stroke={1.5} /> },
+  ];
 
   return (
-    <Stack gap="lg">
-      <Stack gap={2}>
-        <Title order={1}>Привет, Виктория!</Title>
-        <Text c="dimmed" fz="sm">
-          {dateTitleFull(today)}
-        </Text>
+    <Stack gap="xl">
+      {/* Заголовок по центру, круглая кнопка нового дня — у правого края */}
+      <Box pos="relative" mt="xs" px={{ base: 54, sm: 0 }}>
+        <Title order={1} ta="center" fw={400} fz={{ base: 21, xs: 26 }} style={{ whiteSpace: 'nowrap' }}>
+          Привет, Виктория!
+        </Title>
+        <Box pos="absolute" right={{ base: -8, sm: 0 }} top="50%" style={{ transform: 'translateY(-50%)' }}>
+          <NewDayDrawer
+            date={today}
+            dateTitle={dateTitle(today)}
+            categories={cats}
+            defaultAccountId={defaultAccount?.id ?? null}
+            txs={dayTxs.slice(0, 8)}
+          />
+        </Box>
+      </Box>
+
+      {/* Баланс — без подложки, по центру */}
+      <Stack gap={4} align="center" ta="center">
+        <Money value={Math.round(totalRub)} fz={{ base: 28, xs: 36 }} fw={600} lts="-0.02em" />
+        {totalUsd > 0 && (
+          <Text c="dimmed" fz="sm" className="money">
+            + {fmtMoney(totalUsd, 'USD')}
+          </Text>
+        )}
       </Stack>
 
-      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-        <Card>
-          <Stack gap="sm">
-            <CardLabel>На счетах сейчас</CardLabel>
-            <Group align="baseline" gap="xs">
-              <Money value={totalRub} fz={30} fw={600} />
-              {totalUsd > 0 && (
-                <Text c="dimmed" fz="sm" className="money">
-                  + {fmtMoney(totalUsd, 'USD')}
+      {/* Навигация: квадратные плитки — 2 в ряд на мобильном, 3 на широком */}
+      <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="md">
+        {tiles.map((t) => (
+          <Link key={t.href} href={t.href} className="dash-link">
+            <Paper
+              className="dash-tile"
+              p="md"
+              style={{ aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Stack gap={14} align="center">
+                <Text c="ink.7" lh={1} component="span">
+                  {t.icon}
                 </Text>
-              )}
-            </Group>
-            <Table>
-              <TableTbody>
-                {mainAccounts.map((b) => (
-                  <TableTr key={b.accountId}>
-                    <TableTd px={0}>
-                      <Text fz="sm">{b.name}</Text>
-                    </TableTd>
-                    <TableTd px={0} ta="right">
-                      <Money value={b.balance} currency={b.currency} fz="sm" />
-                    </TableTd>
-                  </TableTr>
-                ))}
-                {otherTotal !== 0 && (
-                  <TableTr>
-                    <TableTd px={0}>
-                      <Text fz="sm" c="dimmed">
-                        Вклады, металлы, фондовый рынок
-                      </Text>
-                    </TableTd>
-                    <TableTd px={0} ta="right">
-                      <Money value={otherTotal} fz="sm" c="dimmed" />
-                    </TableTd>
-                  </TableTr>
-                )}
-              </TableTbody>
-            </Table>
-            <AnchorLink href="/accounts" fz="sm">
-              Счета и сверка →
-            </AnchorLink>
-          </Stack>
-        </Card>
-
-        <Card>
-          <Stack gap="sm">
-            <Group justify="space-between" align="center">
-              <CardLabel>Новый день · {dateTitle(today)}</CardLabel>
-              <ButtonLink href={`/day/${today}`} variant="light" size="compact-sm">
-                Вся страница →
-              </ButtonLink>
-            </Group>
-            <QuickExpense
-              date={today}
-              categories={cats}
-              defaultAccountId={defaultAccount?.id ?? null}
-              compact
-            />
-            <Divider />
-            <TxList items={dayTxs.slice(0, 6)} emptyText="Сегодня операций ещё не было" />
-          </Stack>
-        </Card>
-      </SimpleGrid>
-
-      <SimpleGrid cols={{ base: 1, xs: 3 }} spacing="md">
-        <Card>
-          <Stack gap={4}>
-            <CardLabel>{ymTitle(ym)} · фактические</CardLabel>
-            <Money value={totals.actual + totals.trips} fz={24} fw={600} />
-            <Text fz="xs" c="dimmed">
-              покупки целиком{totals.trips > 0 ? ` · поездки ${fmtMoney(totals.trips)}` : ''}
-            </Text>
-          </Stack>
-        </Card>
-        <Card>
-          <Stack gap={4}>
-            <CardLabel>{ymTitle(ym)} · начисленные</CardLabel>
-            <Money value={totals.accrued + totals.trips} fz={24} fw={600} />
-            <Text fz="xs" c="dimmed">
-              с амортизацией {fmtMoney(totals.amortization)}
-            </Text>
-          </Stack>
-        </Card>
-        <Card>
-          <Stack gap={4}>
-            <CardLabel>{ymTitle(ym)} · доходы</CardLabel>
-            <Money value={totals.income} fz={24} fw={600} c={totals.income > 0 ? 'ink.7' : undefined} />
-            <Text fz="xs" c="dimmed">
-              {totals.ksReimbursed !== 0
-                ? `компенсировано из КС ${fmtMoney(Math.abs(totals.ksReimbursed))}`
-                : 'за месяц'}
-            </Text>
-          </Stack>
-        </Card>
+                <Text fz={{ base: 20, sm: 30 }} fw={600} lh={1.15} ta="center">
+                  {t.label}
+                </Text>
+              </Stack>
+            </Paper>
+          </Link>
+        ))}
       </SimpleGrid>
     </Stack>
   );
+}
+
+function cap1(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

@@ -27,6 +27,7 @@ import {
   IconCrystalBall,
   IconTrendingUp,
   IconWallet,
+  IconScale,
   IconSettings,
   IconLogout,
 } from '@tabler/icons-react';
@@ -70,8 +71,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
     {
       section: 'Деньги',
       items: [
+        { href: '/balance', prefix: '/balance', label: 'Баланс', icon: <IconWallet size={18} stroke={1.6} /> },
         { href: '/income', prefix: '/income', label: 'Доходы', icon: <IconTrendingUp size={18} stroke={1.6} /> },
-        { href: '/accounts', prefix: '/accounts', label: 'Счета и сверка', icon: <IconWallet size={18} stroke={1.6} /> },
+        { href: '/accounts', prefix: '/accounts', label: 'Счета и сверка', icon: <IconScale size={18} stroke={1.6} /> },
       ],
     },
   ];

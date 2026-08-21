@@ -17,6 +17,37 @@ body {
   white-space: nowrap;
 }
 
+/* Плитки навигации и карточки-ссылки на дашборде */
+.dash-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.dash-tile,
+.dash-stat {
+  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+.dash-link:hover .dash-tile,
+.dash-link:hover .dash-stat {
+  background-color: var(--mantine-color-ink-0);
+  border-color: var(--mantine-color-ink-3);
+}
+.dash-link:active .dash-tile,
+.dash-link:active .dash-stat {
+  transform: translateY(1px);
+}
+.dash-link:focus-visible .dash-tile,
+.dash-link:focus-visible .dash-stat {
+  outline: 2px solid var(--mantine-color-ink-5);
+  outline-offset: 2px;
+}
+.dash-stat .dash-stat-arrow {
+  transition: transform 140ms ease;
+}
+.dash-link:hover .dash-stat-arrow {
+  transform: translateX(3px);
+}
+
 /* Аккуратный focus */
 :focus-visible {
   outline: 2px solid var(--mantine-color-ink-5);

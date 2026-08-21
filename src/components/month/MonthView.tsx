@@ -23,15 +23,17 @@ export function MonthView({
   accrued,
   txs,
   today,
+  initialMethod = 'actual',
 }: {
   ym: string;
   actual: MonthMatrix;
   accrued: MonthMatrix;
   txs: TxRow[];
   today: string;
+  initialMethod?: 'actual' | 'accrued';
 }) {
   const [mode, setMode] = useState<'matrix' | 'list'>('matrix');
-  const [method, setMethod] = useState<'actual' | 'accrued'>('actual');
+  const [method, setMethod] = useState<'actual' | 'accrued'>(initialMethod);
   const matrix = method === 'actual' ? actual : accrued;
 
   return (
