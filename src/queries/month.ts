@@ -10,6 +10,8 @@ export type SheetRow = {
   days: number[]; // [0] не используется
   total: number;
   pendingDelete?: boolean;
+  /** Обработчик корзинки (проставляется в клиентском компоненте). */
+  onDelete?: () => void;
 };
 export type SheetSection = {
   key: string;

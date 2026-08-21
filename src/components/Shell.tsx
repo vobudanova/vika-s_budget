@@ -81,6 +81,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const isActive = (item: Item) =>
     item.exact ? pathname === item.href : pathname === item.prefix || pathname.startsWith(item.prefix + '/');
 
+  // Широкие страницы-листы: контент без ограничения по ширине
+  const wide = pathname.startsWith('/month') || pathname.startsWith('/year');
+
   return (
     <AppShell
       header={{ height: 54 }}
@@ -163,7 +166,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       <AppShell.Main>
         <PullToRefresh />
-        <Box maw={1060} mx="auto">
+        {/* Таблицы месяца и года разворачиваются на всю ширину экрана */}
+        <Box maw={wide ? undefined : 1060} mx="auto">
           {children}
         </Box>
       </AppShell.Main>

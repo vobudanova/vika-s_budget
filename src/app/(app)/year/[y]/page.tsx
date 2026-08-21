@@ -3,7 +3,6 @@ import { Group, Stack } from '@mantine/core';
 import { PageHeader } from '@/components/PageHeader';
 import { YearView } from '@/components/year/YearView';
 import { getYearSheet } from '@/queries/year';
-import { fmtMoney } from '@/lib/money';
 import { AnchorLink } from '@/components/links';
 
 export const dynamic = 'force-dynamic';
@@ -17,12 +16,6 @@ export default async function YearPage({ params }: { params: Promise<{ y: string
     <Stack gap="md">
       <PageHeader
         title={`Год ${y}`}
-        subtitle={
-          <>
-            Доходы {fmtMoney(data.incomeYear)} · начисленные {fmtMoney(data.accruedTotal)} ·
-            фактические {fmtMoney(data.actualTotal)}
-          </>
-        }
         right={
           <Group gap="xs">
             <AnchorLink href={`/year/${Number(y) - 1}`} fz="sm">

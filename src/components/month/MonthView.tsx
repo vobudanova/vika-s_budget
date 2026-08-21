@@ -1,33 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import {
-  Alert,
-  Card,
-  Group,
-  ScrollArea,
-  SegmentedControl,
-  Stack,
-  Table,
-  Text,
-} from '@mantine/core';
-import type { MonthSheet, SheetSection } from '@/queries/month';
+import { Alert, Card, Group, SegmentedControl, Stack, Text } from '@mantine/core';
+import type { MonthSheet } from '@/queries/month';
 import type { TxRow } from '@/queries/core';
 import { TxList } from '@/components/TxList';
-import { Money } from '@/components/Money';
-import { fmtNumber, fmtMoney } from '@/lib/money';
-
-/** Пастельные подложки принципиально разных блоков. */
-const TONE_BG: Record<SheetSection['tone'], string> = {
-  plain: 'transparent',
-  purchases: '#FFF4E2',
-  amortization: '#F1EFFA',
-  trips: '#E9F4EF',
-  transfers: '#EAF2FB',
-  ks: '#FDECEF',
-  savings: '#F1F7E8',
-};
+import { SheetTable, type SheetColumn } from '@/components/sheet/SheetTable';
+import { fmtMoney } from '@/lib/money';
 
 export function MonthView({
   ym,
@@ -41,6 +20,13 @@ export function MonthView({
   today: string;
 }) {
   const [mode, setMode] = useState<'matrix' | 'list'>('matrix');
+  const filled = new Set(sheet.filledDays);
+
+  const columns: SheetColumn[] = Array.from({ length: sheet.daysCount }, (_, i) => {
+    const d = i + 1;
+    const iso = `${ym}-${String(d).padStart(2, '0')}`;
+    return { key: d, label: String(d), href: `/day/${iso}`, highlight: filled.has(d) || iso === today };
+  });
 
   return (
     <Stack gap="md">
@@ -49,16 +35,15 @@ export function MonthView({
           <Stack gap={4}>
             {sheet.pendingWarnings.map((w) => (
               <Text key={w.name} fz="sm">
-                «{w.groupName} → {w.name}»: {fmtMoney(w.total)} в{' '}
-                {w.months.map((m) => m.slice(5, 7)).join(', ')} мес. Перенесите записи — удаление
-                станет доступно, когда всё обнулится.
+                «{w.groupName} → {w.name}»: {fmtMoney(w.total)} в месяцах {w.months.join(', ')}.
+                Перенесите записи — удаление станет доступно, когда всё обнулится.
               </Text>
             ))}
           </Stack>
         </Alert>
       )}
 
-      <Group gap="sm" wrap="wrap">
+      <Group gap="sm">
         <SegmentedControl
           value={mode}
           onChange={(v) => setMode(v as typeof mode)}
@@ -68,186 +53,28 @@ export function MonthView({
           ]}
           size="xs"
         />
-        <Text fz="sm" c="dimmed">
-          начисленные: <Money value={sheet.accruedTotal} fw={600} c="dark.8" /> · фактические:{' '}
-          <Money value={sheet.actualTotal} fw={600} c="dark.8" />
-        </Text>
       </Group>
 
-      {mode === 'matrix' ? <SheetTable ym={ym} sheet={sheet} today={today} /> : (
+      {mode === 'matrix' ? (
+        <SheetTable
+          columns={columns}
+          sections={sheet.sections}
+          topRows={[
+            { label: 'Начисленные', total: sheet.accruedTotal, values: sheet.accruedTotals },
+            { label: 'Фактические', total: sheet.actualTotal, values: sheet.actualTotals, muted: true },
+          ]}
+        />
+      ) : (
         <Card>
           <TxList items={txs} showDate emptyText="За месяц операций нет" />
         </Card>
       )}
       {mode === 'matrix' && (
         <Text fz="xs" c="dimmed">
-          Числа в шапке — ссылки на страницу дня; бледно-коралловые колонки — дни, отмеченные
-          заполненными. «Начисленные» = траты + амортизация, серые «фактические» = траты + покупки.
+          Числа в шапке — ссылки на страницу дня; подсвеченные колонки — дни, отмеченные
+          заполненными. Блоки ниже «Прочего» свёрнуты — разверните стрелкой.
         </Text>
       )}
     </Stack>
   );
-}
-
-function SheetTable({ ym, sheet, today }: { ym: string; sheet: MonthSheet; today: string }) {
-  const days = range(sheet.daysCount);
-  const filled = new Set(sheet.filledDays);
-
-  return (
-    <Card p={0}>
-      <ScrollArea type="auto" offsetScrollbars>
-        <Table
-          className="sheet"
-          fz={13}
-          verticalSpacing={7}
-          horizontalSpacing={12}
-          miw={860}
-          stickyHeader
-          withColumnBorders
-        >
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th style={firstCol}>Категория</Table.Th>
-              <Table.Th ta="right" style={{ minWidth: 88 }}>
-                Σ мес
-              </Table.Th>
-              {days.map((d) => {
-                const iso = `${ym}-${String(d).padStart(2, '0')}`;
-                const isToday = iso === today;
-                return (
-                  <Table.Th
-                    key={d}
-                    ta="center"
-                    px={8}
-                    style={{ minWidth: 64 }}
-                    bg={filled.has(d) ? 'var(--mantine-color-ink-1)' : undefined}
-                  >
-                    <Text
-                      component={Link}
-                      href={`/day/${iso}`}
-                      fz={13}
-                      fw={isToday ? 700 : 600}
-                      c={isToday ? 'ink.8' : filled.has(d) ? 'ink.8' : 'dimmed'}
-                      td="none"
-                    >
-                      {d}
-                    </Text>
-                  </Table.Th>
-                );
-              })}
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {/* Две строки итогов: начисленные и фактические (серым) */}
-            <Table.Tr>
-              <Table.Td style={firstCol}>
-                <Text fz={13} fw={700}>
-                  Начисленные
-                </Text>
-              </Table.Td>
-              <NumCell v={sheet.accruedTotal} strong />
-              {days.map((d) => (
-                <NumCell key={d} v={sheet.accruedTotals[d]} strong highlight={filled.has(d)} />
-              ))}
-            </Table.Tr>
-            <Table.Tr>
-              <Table.Td style={firstCol}>
-                <Text fz={13} c="gray.5">
-                  фактические
-                </Text>
-              </Table.Td>
-              <NumCell v={sheet.actualTotal} muted />
-              {days.map((d) => (
-                <NumCell key={d} v={sheet.actualTotals[d]} muted />
-              ))}
-            </Table.Tr>
-
-            {sheet.sections.map((s) => (
-              <Section key={s.key} s={s} days={days} />
-            ))}
-          </Table.Tbody>
-        </Table>
-      </ScrollArea>
-    </Card>
-  );
-}
-
-function Section({ s, days }: { s: SheetSection; days: number[] }) {
-  const bg = TONE_BG[s.tone];
-  return (
-    <>
-      <Table.Tr bg={bg === 'transparent' ? 'var(--mantine-color-gray-0)' : bg}>
-        <Table.Td style={{ ...firstCol, background: bg === 'transparent' ? 'var(--mantine-color-gray-0)' : bg }}>
-          <Text fz={13} fw={700}>
-            {s.title}
-          </Text>
-        </Table.Td>
-        <NumCell v={s.total} strong />
-        {days.map((d) => (
-          <NumCell key={d} v={s.dayTotals[d]} strong />
-        ))}
-      </Table.Tr>
-      {s.rows.map((r) => (
-        <Table.Tr key={r.key} bg={bg === 'transparent' ? undefined : bg}>
-          <Table.Td style={{ ...firstCol, background: bg === 'transparent' ? 'var(--mantine-color-white)' : bg }}>
-            <Text fz={13} pl={14} c={r.pendingDelete ? 'red.7' : 'dark.4'} truncate td={r.pendingDelete ? 'line-through' : undefined}>
-              {r.name}
-            </Text>
-          </Table.Td>
-          <NumCell v={r.total} mutedTotal />
-          {days.map((d) => (
-            <NumCell key={d} v={r.days[d]} />
-          ))}
-        </Table.Tr>
-      ))}
-    </>
-  );
-}
-
-/** Ячейка-число: явные нули бледным, значения тёмным (как в Excel-референсе). */
-function NumCell({
-  v,
-  strong,
-  muted,
-  mutedTotal,
-  highlight,
-}: {
-  v: number;
-  strong?: boolean;
-  muted?: boolean;
-  mutedTotal?: boolean;
-  highlight?: boolean;
-}) {
-  const isZero = Math.abs(v) < 0.005;
-  return (
-    <Table.Td
-      ta="right"
-      className="money"
-      fw={strong ? 700 : undefined}
-      c={
-        muted
-          ? 'gray.5'
-          : isZero
-            ? 'gray.4'
-            : mutedTotal
-              ? 'gray.6'
-              : undefined
-      }
-      bg={highlight ? 'var(--mantine-color-ink-0)' : undefined}
-    >
-      {isZero ? '0' : fmtNumber(v, 0)}
-    </Table.Td>
-  );
-}
-
-const firstCol: React.CSSProperties = {
-  position: 'sticky',
-  left: 0,
-  background: 'var(--mantine-color-white)',
-  minWidth: 200,
-  zIndex: 1,
-};
-
-function range(n: number): number[] {
-  return Array.from({ length: n }, (_, i) => i + 1);
 }
