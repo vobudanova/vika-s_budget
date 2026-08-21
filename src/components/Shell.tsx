@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import {
   AppShell,
@@ -31,42 +32,51 @@ import {
 } from '@tabler/icons-react';
 import { logout } from '@/actions/auth';
 
-type Item = { href: string; label: string; icon: React.ReactNode; exact?: boolean };
+type Item = { href: string; prefix: string; label: string; icon: React.ReactNode; exact?: boolean };
 
-const NAV: { section: string | null; items: Item[] }[] = [
-  {
-    section: null,
-    items: [
-      { href: '/', label: 'Дашборд', icon: <IconLayoutDashboard size={18} stroke={1.6} />, exact: true },
-      { href: '/day', label: 'Новый день', icon: <IconCirclePlus size={18} stroke={1.6} /> },
-      { href: '/month', label: 'Месяц', icon: <IconCalendarMonth size={18} stroke={1.6} /> },
-      { href: '/year', label: 'Год', icon: <IconChartHistogram size={18} stroke={1.6} /> },
-    ],
-  },
-  {
-    section: 'Фонды',
-    items: [
-      { href: '/assets', label: 'Амортизация', icon: <IconHourglassLow size={18} stroke={1.6} /> },
-      { href: '/cap', label: 'КАП', icon: <IconTargetArrow size={18} stroke={1.6} /> },
-      { href: '/fund', label: 'Фонд КС', icon: <IconPigMoney size={18} stroke={1.6} /> },
-      { href: '/forecast', label: 'Прогноз', icon: <IconCrystalBall size={18} stroke={1.6} /> },
-    ],
-  },
-  {
-    section: 'Деньги',
-    items: [
-      { href: '/income', label: 'Доходы', icon: <IconTrendingUp size={18} stroke={1.6} /> },
-      { href: '/accounts', label: 'Счета и сверка', icon: <IconWallet size={18} stroke={1.6} /> },
-    ],
-  },
-];
+/** Сегодня в поясе браузера — для прямых ссылок без промежуточных redirect-страниц. */
+function localToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const [opened, { toggle, close }] = useDisclosure();
   const pathname = usePathname();
+  // Дата вычисляется после mount, чтобы не расходиться с SSR-разметкой
+  const [today, setToday] = useState<string | null>(null);
+  useEffect(() => setToday(localToday()), []);
+
+  const NAV: { section: string | null; items: Item[] }[] = [
+    {
+      section: null,
+      items: [
+        { href: '/', prefix: '/', label: 'Дашборд', icon: <IconLayoutDashboard size={18} stroke={1.6} />, exact: true },
+        { href: today ? `/day/${today}` : '/day', prefix: '/day', label: 'Новый день', icon: <IconCirclePlus size={18} stroke={1.6} /> },
+        { href: today ? `/month/${today.slice(0, 7)}` : '/month', prefix: '/month', label: 'Месяц', icon: <IconCalendarMonth size={18} stroke={1.6} /> },
+        { href: today ? `/year/${today.slice(0, 4)}` : '/year', prefix: '/year', label: 'Год', icon: <IconChartHistogram size={18} stroke={1.6} /> },
+      ],
+    },
+    {
+      section: 'Фонды',
+      items: [
+        { href: '/assets', prefix: '/assets', label: 'Амортизация', icon: <IconHourglassLow size={18} stroke={1.6} /> },
+        { href: '/cap', prefix: '/cap', label: 'КАП', icon: <IconTargetArrow size={18} stroke={1.6} /> },
+        { href: '/fund', prefix: '/fund', label: 'Фонд КС', icon: <IconPigMoney size={18} stroke={1.6} /> },
+        { href: '/forecast', prefix: '/forecast', label: 'Прогноз', icon: <IconCrystalBall size={18} stroke={1.6} /> },
+      ],
+    },
+    {
+      section: 'Деньги',
+      items: [
+        { href: '/income', prefix: '/income', label: 'Доходы', icon: <IconTrendingUp size={18} stroke={1.6} /> },
+        { href: '/accounts', prefix: '/accounts', label: 'Счета и сверка', icon: <IconWallet size={18} stroke={1.6} /> },
+      ],
+    },
+  ];
 
   const isActive = (item: Item) =>
-    item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/');
+    item.exact ? pathname === item.href : pathname === item.prefix || pathname.startsWith(item.prefix + '/');
 
   return (
     <AppShell

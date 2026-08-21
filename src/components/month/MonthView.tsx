@@ -65,8 +65,8 @@ export function MonthView({
           <ScrollArea type="auto" offsetScrollbars>
             <Table
               fz="xs"
-              verticalSpacing={3}
-              horizontalSpacing={6}
+              verticalSpacing={4}
+              horizontalSpacing={10}
               withColumnBorders={false}
               miw={720}
               stickyHeader
@@ -81,7 +81,7 @@ export function MonthView({
                     const iso = `${ym}-${String(d).padStart(2, '0')}`;
                     const isToday = iso === today;
                     return (
-                      <Table.Th key={d} ta="right" p={2}>
+                      <Table.Th key={d} ta="right" px={6} style={{ minWidth: 56 }}>
                         <Text
                           component={Link}
                           href={`/day/${iso}`}
@@ -94,7 +94,7 @@ export function MonthView({
                               ? {
                                   background: 'var(--mantine-color-ink-0)',
                                   borderRadius: 4,
-                                  padding: '1px 4px',
+                                  padding: '1px 5px',
                                 }
                               : undefined
                           }
