@@ -24,7 +24,7 @@ export default function LoginPage() {
             <Title order={1} fz={30} fw={600} lts="-0.02em">
               Вика
               <Text span inherit c="ink.7">
-                .Финансы
+                .Salmon
               </Text>
             </Title>
             <Text c="dimmed" fz="sm">

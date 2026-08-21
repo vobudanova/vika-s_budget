@@ -108,7 +108,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             >
               Вика
               <Text span inherit c="ink.7">
-                .Финансы
+                .Salmon
               </Text>
             </Text>
           </Group>

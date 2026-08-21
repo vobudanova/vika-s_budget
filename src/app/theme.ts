@@ -2,18 +2,18 @@
 
 import { createTheme, rem, MantineColorsTuple } from '@mantine/core';
 
-/** «Зелёные чернила» — фирменный цвет из рукописных набросков бюджета. */
+/** Фирменный лососевый (#FA8072 — базовый тон в позиции 5). */
 const ink: MantineColorsTuple = [
-  '#EDF6F0',
-  '#DBEDE2',
-  '#BBDECB',
-  '#97CEB1',
-  '#77BF9A',
-  '#5BAF88',
-  '#3F9A72',
-  '#2F7D5B',
-  '#256748',
-  '#1C523A',
+  '#FFF1EE',
+  '#FFE2DC',
+  '#FEC8BE',
+  '#FDAEA0',
+  '#FC9686',
+  '#FA8072',
+  '#EE6857',
+  '#D14A3C',
+  '#A93A2E',
+  '#7E2B22',
 ];
 
 export const theme = createTheme({

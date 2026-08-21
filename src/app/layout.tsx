@@ -25,12 +25,12 @@ const jbMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: 'Вика.Финансы', template: '%s — Вика.Финансы' },
+  title: { default: 'Вика.Salmon', template: '%s — Вика.Salmon' },
   description: 'Личные финансы: траты, амортизация, КАП и фонд КС',
   robots: { index: false, follow: false },
   appleWebApp: {
     capable: true,
-    title: 'Вика.Финансы',
+    title: 'Вика.Salmon',
     statusBarStyle: 'default',
   },
   other: {
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#f6f8f6',
+  themeColor: '#faf7f5',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#358A65"/>
-      <stop offset="1" stop-color="#22603F"/>
+      <stop offset="0" stop-color="#FB8E7E"/>
+      <stop offset="1" stop-color="#CE4536"/>
     </linearGradient>
   </defs>
   <!-- full-bleed квадрат: маску скругления накладывает iOS/Android -->
   <rect width="64" height="64" fill="url(#bg)"/>
   <!-- глиф в безопасной зоне (~66%) под maskable-иконки -->
   <path d="M18.5 30.5 L28 44 L46.5 19.5"
-        fill="none" stroke="#F3F7F3" stroke-width="8.2"
+        fill="none" stroke="#FFF6F3" stroke-width="8.2"
         stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="48.6" cy="45.2" r="3.9" fill="#BFE0CD"/>
+  <circle cx="48.6" cy="45.2" r="3.9" fill="#FFD9D0"/>
 </svg>

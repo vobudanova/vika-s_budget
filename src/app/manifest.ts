@@ -2,13 +2,13 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Вика.Финансы',
-    short_name: 'Вика.Финансы',
+    name: 'Вика.Salmon',
+    short_name: 'Вика.Salmon',
     description: 'Личные финансы: траты, амортизация, КАП и фонд КС',
     start_url: '/',
     display: 'standalone',
-    background_color: '#f6f8f6',
-    theme_color: '#f6f8f6',
+    background_color: '#faf7f5',
+    theme_color: '#faf7f5',
     lang: 'ru',
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
