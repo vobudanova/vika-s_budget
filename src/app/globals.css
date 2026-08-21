@@ -40,6 +40,12 @@ body {
 
 /* Standalone-режим (добавлено на экран «Домой»): отступы под системные зоны iPhone */
 @media (display-mode: standalone) {
+  html,
+  body {
+    /* резинка iOS не конфликтует с нашим pull-to-refresh */
+    overscroll-behavior-y: contain;
+  }
+
   .mantine-AppShell-main {
     padding-bottom: calc(var(--app-shell-padding, 16px) + env(safe-area-inset-bottom, 0px));
   }

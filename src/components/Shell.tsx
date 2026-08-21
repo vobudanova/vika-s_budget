@@ -31,6 +31,7 @@ import {
   IconLogout,
 } from '@tabler/icons-react';
 import { logout } from '@/actions/auth';
+import { PullToRefresh } from './PullToRefresh';
 
 type Item = { href: string; prefix: string; label: string; icon: React.ReactNode; exact?: boolean };
 
@@ -159,6 +160,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </AppShell.Navbar>
 
       <AppShell.Main>
+        <PullToRefresh />
         <Box maw={1060} mx="auto">
           {children}
         </Box>
