@@ -28,6 +28,15 @@ export const metadata: Metadata = {
   title: { default: 'Вика.Финансы', template: '%s — Вика.Финансы' },
   description: 'Личные финансы: траты, амортизация, КАП и фонд КС',
   robots: { index: false, follow: false },
+  appleWebApp: {
+    capable: true,
+    title: 'Вика.Финансы',
+    statusBarStyle: 'default',
+  },
+  other: {
+    // legacy-тег для старых iOS (новый Next выдаёт только mobile-web-app-capable)
+    'apple-mobile-web-app-capable': 'yes',
+  },
 };
 
 export const viewport: Viewport = {

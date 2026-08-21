@@ -37,3 +37,13 @@ html,
 body {
   overflow-x: hidden;
 }
+
+/* Standalone-режим (добавлено на экран «Домой»): отступы под системные зоны iPhone */
+@media (display-mode: standalone) {
+  .mantine-AppShell-main {
+    padding-bottom: calc(var(--app-shell-padding, 16px) + env(safe-area-inset-bottom, 0px));
+  }
+  .mantine-AppShell-header {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
