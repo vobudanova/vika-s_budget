@@ -6,6 +6,7 @@ import { ActionIcon, Divider, Drawer, Stack, Text, Tooltip } from '@mantine/core
 import { IconPlus } from '@tabler/icons-react';
 import { QuickExpense } from './QuickExpense';
 import { TxList } from './TxList';
+import { FilledDayToggle } from './day/FilledDayToggle';
 import type { TxRow } from '@/queries/core';
 import type { SelectGroup } from './tx-helpers';
 
@@ -15,12 +16,14 @@ export function NewDayDrawer({
   categories,
   defaultAccountId,
   txs,
+  filled = false,
 }: {
   date: string;
   dateTitle: string;
   categories: SelectGroup[];
   defaultAccountId: number | null;
   txs: TxRow[];
+  filled?: boolean;
 }) {
   const [opened, setOpened] = useState(false);
 
@@ -58,6 +61,7 @@ export function NewDayDrawer({
           />
           <Divider label="Операции сегодня" labelPosition="left" />
           <TxList items={txs} emptyText="Пока пусто — самое время для первой записи" />
+          <FilledDayToggle date={date} initial={filled} />
           <Link href={`/day/${date}`} className="dash-link" onClick={() => setOpened(false)}>
             <Text fz="sm" c="ink.7" fw={500}>
               Вся страница дня: покупки, переводы, наличные, КС →

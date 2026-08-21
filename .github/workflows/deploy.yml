@@ -10,9 +10,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Идентификаторы проекта (не секретны), токен — в Secrets репозитория
+  # Идентификаторы проекта (не секретны), токены — в Secrets репозитория
   VERCEL_ORG_ID: team_q2v1xMYpTwQ3pRoOnb3KVX38
   VERCEL_PROJECT_ID: prj_7m43OcarSXqVRQjaKxfnst0WG8pA
+  # Пусто, если секрет не задан: тогда шаг миграций пропускается
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
 jobs:
   deploy:
@@ -22,6 +24,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install deps for migrations
+        if: env.DATABASE_URL != ''
+        run: npm ci --ignore-scripts
+      - name: Apply DB migrations
+        if: env.DATABASE_URL != ''
+        run: npx tsx src/db/migrate.ts
       - name: Deploy (build on Vercel)
         run: npx --yes vercel@latest deploy --prod --yes --token="$VERCEL_TOKEN"
         env:

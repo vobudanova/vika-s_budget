@@ -119,9 +119,9 @@ function EditModal({ t, onClose }: { t: TxRow | null; onClose: () => void }) {
   const [date, setDate] = useState('');
   const [opened, setOpened] = useState(false);
 
-  // Синхронизация при открытии
+  // Синхронизация при открытии; выражение показывается как введено («300+500-200»)
   if (t && !opened) {
-    setAmount(fmtMoney(Math.abs(t.amount)).replace(/[  ₽]/g, ''));
+    setAmount(t.amountExpr ?? fmtMoney(Math.abs(t.amount)).replace(/[  ₽]/g, ''));
     setNote(t.note ?? '');
     setDate(t.date);
     setOpened(true);

@@ -5,6 +5,7 @@ import {
   ActionIcon,
   Button,
   Group,
+  Modal,
   NumberInput,
   Select,
   Stack,
@@ -15,21 +16,32 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconArchive, IconArchiveOff, IconCheck } from '@tabler/icons-react';
+import { IconArchive, IconArchiveOff, IconCheck, IconPencil, IconTrash } from '@tabler/icons-react';
 import {
   archiveCategory,
   createAccount,
   createCategory,
   createFundCategory,
   createIncomeSource,
+  deleteCategoryHard,
+  getCategoryUsage,
+  renameCategory,
+  setCategoryPendingDelete,
   toggleAccountActive,
   unarchiveCategory,
   updateFundPlan,
   updateIncomeExpected,
+  type CategoryUsage,
 } from '@/actions/reference';
 import { saveSetting } from '@/actions/misc';
 
-type Cat = { id: number; groupId: number; name: string; activeTo: string | null };
+type Cat = {
+  id: number;
+  groupId: number;
+  name: string;
+  activeTo: string | null;
+  pendingDelete: boolean;
+};
 type Grp = { id: number; name: string };
 type FundCat = { id: number; name: string; groupName: string; monthlyPlan: number };
 type Source = { id: number; name: string; type: string; expectedMonthly: number | null };
@@ -116,19 +128,37 @@ function CategoriesPanel({ groups, categories }: { groups: Grp[]; categories: Ca
   const [groupId, setGroupId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [pending, startTransition] = useTransition();
+  const [renaming, setRenaming] = useState<Cat | null>(null);
+  const [deleting, setDeleting] = useState<{ cat: Cat; usage: CategoryUsage[] } | null>(null);
 
   const add = () =>
     startTransition(async () => {
-      notify(await createCategory(Number(groupId), name), 'Категория добавлена');
+      notify(await createCategory(Number(groupId), name), 'Категория добавлена — с нулями во всех периодах');
       setName('');
     });
 
-  const toggle = (c: Cat) =>
+  const toggleArchive = (c: Cat) =>
     startTransition(async () => {
       notify(
         c.activeTo ? await unarchiveCategory(c.id) : await archiveCategory(c.id),
         c.activeTo ? 'Категория возвращена' : 'Категория архивирована',
       );
+    });
+
+  const askDelete = (c: Cat) =>
+    startTransition(async () => {
+      if (c.pendingDelete) {
+        notify(await setCategoryPendingDelete(c.id, false), 'Пометка к удалению снята');
+        return;
+      }
+      const usage = await getCategoryUsage(c.id);
+      if (usage.length === 0) {
+        if (confirm(`Категория «${c.name}» пуста. Удалить навсегда?`)) {
+          notify(await deleteCategoryHard(c.id), 'Категория удалена');
+        }
+      } else {
+        setDeleting({ cat: c, usage });
+      }
     });
 
   return (
@@ -167,15 +197,27 @@ function CategoriesPanel({ groups, categories }: { groups: Grp[]; categories: Ca
                   px={10}
                   py={4}
                   style={{
-                    border: '1px solid var(--ink-line)',
+                    border: `1px solid ${c.pendingDelete ? 'var(--mantine-color-red-4)' : 'var(--ink-line)'}`,
                     borderRadius: 99,
                     opacity: c.activeTo ? 0.5 : 1,
                   }}
                 >
-                  <Text fz="xs">{c.name}</Text>
+                  <Text fz="xs" td={c.pendingDelete ? 'line-through' : undefined} c={c.pendingDelete ? 'red.7' : undefined}>
+                    {c.name}
+                  </Text>
+                  <Tooltip label="Переименовать (изменится во всех прошлых и будущих периодах)">
+                    <ActionIcon size="xs" variant="subtle" color="gray" onClick={() => setRenaming(c)}>
+                      <IconPencil size={12} />
+                    </ActionIcon>
+                  </Tooltip>
                   <Tooltip label={c.activeTo ? 'Вернуть из архива' : 'Архивировать'}>
-                    <ActionIcon size="xs" variant="subtle" color="gray" onClick={() => toggle(c)}>
+                    <ActionIcon size="xs" variant="subtle" color="gray" onClick={() => toggleArchive(c)}>
                       {c.activeTo ? <IconArchiveOff size={12} /> : <IconArchive size={12} />}
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label={c.pendingDelete ? 'Снять пометку к удалению' : 'Удалить'}>
+                    <ActionIcon size="xs" variant="subtle" color="red" onClick={() => askDelete(c)}>
+                      <IconTrash size={12} />
                     </ActionIcon>
                   </Tooltip>
                 </Group>
@@ -185,9 +227,91 @@ function CategoriesPanel({ groups, categories }: { groups: Grp[]; categories: Ca
         );
       })}
       <Text fz="xs" c="dimmed">
-        Архивная категория сохраняет историю, но не предлагается в формах.
+        Переименование меняет название везде. Удаление категории с данными сначала помечает её — на
+        страницах месяца и года будет висеть предупреждение, пока записи не перенесены; когда всё
+        обнулится, на странице года появится красная корзинка окончательного удаления.
       </Text>
+
+      <RenameModal cat={renaming} onClose={() => setRenaming(null)} />
+      <DeleteModal state={deleting} onClose={() => setDeleting(null)} />
     </Stack>
+  );
+}
+
+function RenameModal({ cat, onClose }: { cat: Cat | null; onClose: () => void }) {
+  const [value, setValue] = useState('');
+  const [prev, setPrev] = useState<number | null>(null);
+  const [pending, startTransition] = useTransition();
+  if (cat && prev !== cat.id) {
+    setValue(cat.name);
+    setPrev(cat.id);
+  }
+  const save = () =>
+    startTransition(async () => {
+      if (!cat) return;
+      notify(await renameCategory(cat.id, value), 'Переименовано во всех периодах');
+      onClose();
+    });
+  return (
+    <Modal opened={!!cat} onClose={onClose} title="Переименовать категорию" centered size="sm">
+      <Stack gap="sm">
+        <TextInput label="Название" value={value} onChange={(e) => setValue(e.currentTarget.value)} autoFocus />
+        <Text fz="xs" c="dimmed">
+          Название изменится во всех прошлых и будущих месяцах, в годовой таблице и во всех формах.
+        </Text>
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>
+            Отмена
+          </Button>
+          <Button onClick={save} loading={pending} disabled={!value.trim()}>
+            Переименовать
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
+
+function DeleteModal({
+  state,
+  onClose,
+}: {
+  state: { cat: Cat; usage: CategoryUsage[] } | null;
+  onClose: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const mark = () =>
+    startTransition(async () => {
+      if (!state) return;
+      notify(await setCategoryPendingDelete(state.cat.id, true), 'Помечена к удалению — предупреждение будет висеть до переноса данных');
+      onClose();
+    });
+  return (
+    <Modal opened={!!state} onClose={onClose} title={`Удаление «${state?.cat.name}»`} centered>
+      <Stack gap="sm">
+        <Text fz="sm">По категории есть данные — сразу удалить нельзя. Затронуты:</Text>
+        <Stack gap={2}>
+          {state?.usage.map((u) => (
+            <Text key={u.ym} fz="sm" c="dimmed">
+              {u.ym}: {u.count} запис. на {u.total.toLocaleString('ru-RU')} ₽
+            </Text>
+          ))}
+        </Stack>
+        <Text fz="xs" c="dimmed">
+          Можно пометить категорию к удалению и продолжать работу: на страницах месяца и года будет
+          висеть предупреждение, пока записи не перенесены в другие категории. Когда всё обнулится —
+          красная корзинка на странице года удалит её навсегда.
+        </Text>
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>
+            Отмена
+          </Button>
+          <Button color="red" onClick={mark} loading={pending}>
+            Пометить к удалению
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
   );
 }
 

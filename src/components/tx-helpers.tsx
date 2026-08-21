@@ -30,7 +30,10 @@ export function txLabel(t: TxRow): { title: string; detail: string | null } {
     case 'expense':
       return {
         title: t.categoryName ?? 'Расход',
-        detail: [t.covered ? 'теневой' : null, t.note].filter(Boolean).join(' · ') || null,
+        detail:
+          [t.amountExpr ? `= ${t.amountExpr}` : null, t.covered ? 'теневой' : null, t.note]
+            .filter(Boolean)
+            .join(' · ') || null,
       };
     case 'purchase':
       return { title: `Покупка: ${t.note ?? t.categoryName ?? ''}`.trim(), detail: t.categoryName };

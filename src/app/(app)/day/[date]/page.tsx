@@ -2,8 +2,10 @@ import { notFound } from 'next/navigation';
 import { Group, Stack, Text, Title } from '@mantine/core';
 import { dateTitleFull, isValidISODate, todayISO } from '@/lib/dates';
 import { getDayTransactions, getReference, getSetting } from '@/queries/core';
+import { isFilledDay } from '@/actions/misc';
 import { DayWorkspace } from '@/components/day/DayWorkspace';
 import { DateSwitcher } from '@/components/day/DateSwitcher';
+import { FilledDayToggle } from '@/components/day/FilledDayToggle';
 import { Money } from '@/components/Money';
 import { categorySelectData } from '@/components/tx-helpers';
 
@@ -13,10 +15,11 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
   const { date } = await params;
   if (!isValidISODate(date)) notFound();
 
-  const [txs, ref, inflationRate] = await Promise.all([
+  const [txs, ref, inflationRate, filled] = await Promise.all([
     getDayTransactions(date),
     getReference(date),
     getSetting<number>('cap_inflation_rate', 1.1),
+    isFilledDay(date),
   ]);
 
   const daySpent = txs
@@ -38,7 +41,10 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
             )}
           </Text>
         </Stack>
-        <DateSwitcher date={date} base="/day" today={todayISO()} />
+        <Group gap="md" wrap="wrap">
+          <FilledDayToggle date={date} initial={filled} />
+          <DateSwitcher date={date} base="/day" today={todayISO()} />
+        </Group>
       </Group>
       <DayWorkspace
         date={date}

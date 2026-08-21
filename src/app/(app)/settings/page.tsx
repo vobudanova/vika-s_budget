@@ -29,6 +29,7 @@ export default async function SettingsPage() {
           groupId: c.groupId,
           name: c.name,
           activeTo: c.activeTo,
+          pendingDelete: c.pendingDelete,
         }))}
         fundCategories={fundCategories.map((f) => ({
           id: f.id,

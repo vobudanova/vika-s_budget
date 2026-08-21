@@ -49,6 +49,13 @@ const expenseInput = z.object({
   covered: z.boolean().optional(),
 });
 
+/** Выражение сохраняется как введено («300+500-200»), если это не просто число. */
+function exprOf(raw: string | undefined): string | null {
+  const s = (raw ?? '').trim();
+  if (!s) return null;
+  return /^[-+]?\d+([.,]\d+)?$/.test(s) ? null : s;
+}
+
 export async function createExpense(raw: z.input<typeof expenseInput>): Promise<ActionResult> {
   try {
     const input = expenseInput.parse(raw);
@@ -56,6 +63,7 @@ export async function createExpense(raw: z.input<typeof expenseInput>): Promise<
     await db.insert(transactions).values({
       date: input.date,
       amount: String(amount),
+      amountExpr: exprOf(typeof raw.amount === 'string' ? raw.amount : undefined),
       kind: 'expense',
       categoryId: input.categoryId,
       accountId: input.accountId ?? undefined,
@@ -275,7 +283,12 @@ export async function updateTransaction(raw: z.input<typeof updateInput>): Promi
       .set({
         ...(input.date ? { date: input.date } : {}),
         ...(input.amount !== undefined
-          ? { amount: String(tx.amount && Number(tx.amount) < 0 ? -Math.abs(input.amount) : input.amount) }
+          ? {
+              amount: String(
+                tx.amount && Number(tx.amount) < 0 ? -Math.abs(input.amount) : input.amount,
+              ),
+              amountExpr: exprOf(typeof raw.amount === 'string' ? raw.amount : undefined),
+            }
           : {}),
         ...(input.categoryId !== undefined && input.categoryId !== null
           ? { categoryId: input.categoryId }

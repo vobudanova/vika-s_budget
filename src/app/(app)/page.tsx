@@ -16,6 +16,7 @@ import {
   getReference,
   splitBalances,
 } from '@/queries/core';
+import { isFilledDay } from '@/actions/misc';
 import { Money } from '@/components/Money';
 import { NewDayDrawer } from '@/components/NewDayDrawer';
 import { categorySelectData } from '@/components/tx-helpers';
@@ -26,10 +27,11 @@ export default async function DashboardPage() {
   const today = todayISO();
   const ym = ymOf(today);
   const year = today.slice(0, 4);
-  const [balances, dayTxs, ref] = await Promise.all([
+  const [balances, dayTxs, ref, filled] = await Promise.all([
     getAccountBalances(),
     getDayTransactions(today),
     getReference(today),
+    isFilledDay(today),
   ]);
   const { totalRub, totalUsd } = splitBalances(balances);
   const cats = categorySelectData(ref.groups, ref.categories);
@@ -59,6 +61,7 @@ export default async function DashboardPage() {
             categories={cats}
             defaultAccountId={defaultAccount?.id ?? null}
             txs={dayTxs.slice(0, 8)}
+            filled={filled}
           />
         </Box>
       </Box>

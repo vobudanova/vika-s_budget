@@ -2,27 +2,20 @@ import { notFound } from 'next/navigation';
 import { Group, Stack, Text, Title } from '@mantine/core';
 import { isValidYM, todayISO, ymOf, ymTitle } from '@/lib/dates';
 import { getMonthTotals, getMonthTransactions } from '@/queries/core';
-import { getMonthMatrices } from '@/queries/month';
+import { getMonthSheet } from '@/queries/month';
 import { MonthView } from '@/components/month/MonthView';
 import { MonthSwitcher } from '@/components/month/MonthSwitcher';
 import { fmtMoney } from '@/lib/money';
 
 export const dynamic = 'force-dynamic';
 
-export default async function MonthPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ ym: string }>;
-  searchParams: Promise<{ method?: string }>;
-}) {
+export default async function MonthPage({ params }: { params: Promise<{ ym: string }> }) {
   const { ym } = await params;
-  const { method } = await searchParams;
   if (!isValidYM(ym)) notFound();
   const today = todayISO();
 
-  const [{ actual, accrued }, txs, totals] = await Promise.all([
-    getMonthMatrices(ym),
+  const [sheet, txs, totals] = await Promise.all([
+    getMonthSheet(ym),
     getMonthTransactions(ym),
     getMonthTotals(ym),
   ]);
@@ -42,14 +35,7 @@ export default async function MonthPage({
         </Stack>
         <MonthSwitcher ym={ym} currentYm={ymOf(today)} />
       </Group>
-      <MonthView
-        ym={ym}
-        actual={actual}
-        accrued={accrued}
-        txs={txs}
-        today={today}
-        initialMethod={method === 'accrued' ? 'accrued' : 'actual'}
-      />
+      <MonthView ym={ym} sheet={sheet} txs={txs} today={today} />
     </Stack>
   );
 }

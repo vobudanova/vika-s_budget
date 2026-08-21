@@ -67,7 +67,7 @@ export default async function FundPage() {
 
       <Card p={0}>
         <ScrollArea type="auto" offsetScrollbars>
-          <Table miw={640} verticalSpacing={6} fz="sm">
+          <Table miw={680} verticalSpacing={9} horizontalSpacing={12} fz="sm">
             <TableThead>
               <TableTr>
                 <TableTh>Статья</TableTh>

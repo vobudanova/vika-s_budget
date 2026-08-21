@@ -172,6 +172,28 @@ export async function lendMoney(raw: z.input<typeof lendInput>): Promise<ActionR
   }
 }
 
+// ------------------------------------------------- отметка «день заполнен»
+
+export async function toggleFilledDay(date: string, filled: boolean): Promise<ActionResult> {
+  try {
+    if (!isValidISODate(date)) return { ok: false, error: 'Некорректная дата' };
+    if (filled) {
+      await db.insert(schema.filledDays).values({ date }).onConflictDoNothing();
+    } else {
+      await db.delete(schema.filledDays).where(eq(schema.filledDays.date, date));
+    }
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function isFilledDay(date: string): Promise<boolean> {
+  const [row] = await db.select().from(schema.filledDays).where(eq(schema.filledDays.date, date));
+  return !!row;
+}
+
 // ------------------------------------------------------------- настройки
 
 export async function saveSetting(key: string, value: unknown): Promise<ActionResult> {

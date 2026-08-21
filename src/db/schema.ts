@@ -41,12 +41,19 @@ export const categories = pgTable(
     sortOrder: integer('sort_order').notNull().default(0),
     activeFrom: date('active_from').notNull().default('2000-01-01'),
     activeTo: date('active_to'),
+    // помечена к удалению: висит предупреждение, пока по ней остаются данные
+    pendingDelete: boolean('pending_delete').notNull().default(false),
   },
   (t) => [
     uniqueIndex('categories_group_name_uq').on(t.groupId, t.name),
     check('categories_row_type_chk', sql`${t.rowType} in ('expense','trip')`),
   ],
 );
+
+/** Дни, отмеченные «заполненными» — подсвечиваются в матрице месяца. */
+export const filledDays = pgTable('filled_days', {
+  date: date('date').primaryKey(),
+});
 
 export const accounts = pgTable(
   'accounts',
@@ -297,6 +304,8 @@ export const transactions = pgTable(
     fundAllocation: text('fund_allocation'),
     // «что получено» для сбережений: «1 000 $», «монета Георгий Победоносец 7,78 г»
     acquiredNote: text('acquired_note'),
+    // исходное выражение суммы («300+500-200») — редактируется как в Excel
+    amountExpr: text('amount_expr'),
     // теневой расход: покрыт внешней компенсацией, в итоги расходов не входит (вопрос №22)
     covered: boolean('covered').notNull().default(false),
     note: text('note'),

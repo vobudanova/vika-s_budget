@@ -92,7 +92,7 @@ export default async function IncomePage() {
               По источникам · {year}
             </Text>
             <ScrollArea type="auto" offsetScrollbars>
-              <Table miw={860} fz="xs" verticalSpacing={4}>
+              <Table miw={980} fz={13} verticalSpacing={8} horizontalSpacing={12} withColumnBorders className="sheet">
                 <TableThead>
                   <TableTr>
                     <TableTh style={{ minWidth: 170 }}>Источник</TableTh>

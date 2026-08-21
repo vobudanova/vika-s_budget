@@ -108,7 +108,7 @@ function AssetTable({
 }) {
   return (
     <ScrollArea type="auto" offsetScrollbars>
-      <Table miw={760} verticalSpacing={6} fz="sm">
+      <Table miw={820} verticalSpacing={9} horizontalSpacing={12} fz="sm">
         <TableThead>
           <TableTr>
             <TableTh>Покупка</TableTh>
