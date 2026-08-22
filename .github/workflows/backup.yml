@@ -14,25 +14,36 @@ jobs:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - name: Проверка секрета
-        if: env.DATABASE_URL == ''
         run: |
-          echo "::error::Секрет DATABASE_URL не задан — бэкап невозможен"
-          exit 1
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Секрет DATABASE_URL не задан — бэкап невозможен"
+            exit 1
+          fi
+          case "$DATABASE_URL" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::DATABASE_URL не похож на строку подключения (лишние кавычки?)"; exit 1 ;;
+          esac
+          case "$DATABASE_URL" in
+            *localhost*|*127.0.0.1*) echo "::error::DATABASE_URL указывает на localhost — это не Neon"; exit 1 ;;
+          esac
 
-      # клиент той же мажорной версии, что сервер Neon — иначе pg_dump откажется
-      - name: Установить postgresql-client-17
+      # клиент той же мажорной версии, что сервер Neon (сейчас 18) — иначе pg_dump откажется;
+      # бинарь берём по явному пути: системная обёртка может подсунуть старую версию
+      - name: Установить postgresql-client-18
         run: |
           sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
           sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client-17
+          sudo apt-get install -y -qq postgresql-client-18
+          /usr/lib/postgresql/18/bin/pg_dump --version
 
       - name: pg_dump
         run: |
           # дамп идёт через прямое подключение: pooled-endpoint (pgbouncer) для pg_dump ненадёжен
           DIRECT_URL="${DATABASE_URL/-pooler/}"
           STAMP="$(date -u +%F)"
-          pg_dump "$DIRECT_URL" --no-owner --no-privileges | gzip > "vika-salmon-${STAMP}.sql.gz"
+          /usr/lib/postgresql/18/bin/pg_dump "$DIRECT_URL" --no-owner --no-privileges \
+            | gzip > "vika-salmon-${STAMP}.sql.gz"
           ls -lah vika-salmon-*.sql.gz
           # пустой дамп — признак проблемы, лучше упасть громко
           test "$(gzip -cd vika-salmon-${STAMP}.sql.gz | wc -c)" -gt 10000
