@@ -21,11 +21,11 @@ let DEVICES: [(Double, Double, Double, Double)] = [
   (414, 896, 3, 48),  // XS Max/11 Pro Max
   (390, 844, 3, 47),  // 12/13/14
   (393, 852, 3, 59),  // 14 Pro/15/16
-  (402, 874, 3, 59),  // 16 Pro/17
-  (420, 912, 3, 59),  // Air
+  (402, 874, 3, 62),  // 16 Pro/17/17 Pro — статус-бар выше, чем у 15/16
+  (420, 912, 3, 62),  // Air
   (428, 926, 3, 47),  // 12/13 Pro Max/14 Plus
   (430, 932, 3, 59),  // 14 Pro Max/15 Plus/15 Pro Max/16 Plus
-  (440, 956, 3, 59),  // 16 Pro Max/17 Pro Max
+  (440, 956, 3, 62),  // 16 Pro Max/17 Pro Max
 ]
 
 let scriptURL = URL(fileURLWithPath: CommandLine.arguments[0])
@@ -69,17 +69,18 @@ for (lw, lh, dpr, statusH) in DEVICES {
 
   // — шапка (ниже статус-бара): бургер, «Вика.Salmon», иконка выхода —
   let headC = statusH + 27
-  for i in -1...1 {  // бургер size=sm
-    bar(16, headC - 1 + Double(i) * 5.5, 18, 2, 1, dark8)
+  for i in -1...1 {  // бургер size=sm: линии с учётом отступа внутри бокса
+    bar(20, headC - 1 + Double(i) * 5.5, 18, 2, 1, dark8)
   }
   let brandFont = NSFont(name: "Golos Text SemiBold", size: 17) ?? NSFont(name: "GolosText-SemiBold", size: 17)!
   let brand = NSMutableAttributedString()
   brand.append(NSAttributedString(string: "Вика", attributes: [.font: brandFont, .foregroundColor: dark8, .kern: -0.34]))
   brand.append(NSAttributedString(string: ".Salmon", attributes: [.font: brandFont, .foregroundColor: salmon, .kern: -0.34]))
-  brand.draw(at: NSPoint(x: 46, y: lh - headC - brandFont.ascender + brandFont.xHeight / 2))
+  // draw(at:) — нижний левый угол bounding box; центрируем полосу капов на headC
+  brand.draw(at: NSPoint(x: 55, y: lh - headC - brandFont.capHeight / 2 + brandFont.descender))
 
   let lo = NSBezierPath()  // tabler icon-logout, 18pt на сетке 24
-  let s = 18.0 / 24.0, ox = lw - 16 - 23, oy = headC - 9.0
+  let s = 18.0 / 24.0, ox = lw - 38, oy = headC - 9.0
   func pt(_ x: Double, _ y: Double) -> NSPoint { NSPoint(x: ox + x * s, y: lh - (oy + y * s)) }
   lo.move(to: pt(14, 8)); lo.curve(to: pt(12, 4), controlPoint1: pt(14, 5.8), controlPoint2: pt(13.1, 4))
   lo.line(to: pt(6, 4)); lo.curve(to: pt(4, 6), controlPoint1: pt(4.9, 4), controlPoint2: pt(4, 4.9))
