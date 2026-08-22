@@ -67,34 +67,22 @@ for (lw, lh, dpr, statusH) in DEVICES {
   paper.setFill()
   NSRect(x: 0, y: 0, width: lw, height: lh).fill()
 
-  // — шапка (ниже статус-бара): бургер, «Вика.Salmon», иконка выхода —
-  let headC = statusH + 27
-  for i in -1...1 {  // бургер size=sm: линии с учётом отступа внутри бокса
-    bar(20, headC - 1 + Double(i) * 5.5, 18, 2, 1, dark8)
+  // — без шапки: строка «бургер + логотип» в потоке страницы —
+  let headC = statusH + 16 + 12
+  for i in -1...1 {  // бургер size=sm
+    bar(16, headC - 1 + Double(i) * 5.5, 18, 2, 1, dark8)
   }
   let brandFont = NSFont(name: "Golos Text SemiBold", size: 17) ?? NSFont(name: "GolosText-SemiBold", size: 17)!
   let brand = NSMutableAttributedString()
   brand.append(NSAttributedString(string: "Вика", attributes: [.font: brandFont, .foregroundColor: dark8, .kern: -0.34]))
   brand.append(NSAttributedString(string: ".Salmon", attributes: [.font: brandFont, .foregroundColor: salmon, .kern: -0.34]))
   // draw(at:) — нижний левый угол bounding box; центрируем полосу капов на headC
-  brand.draw(at: NSPoint(x: 55, y: lh - headC - brandFont.capHeight / 2 + brandFont.descender))
-
-  let lo = NSBezierPath()  // tabler icon-logout, 18pt на сетке 24
-  let s = 18.0 / 24.0, ox = lw - 38, oy = headC - 9.0
-  func pt(_ x: Double, _ y: Double) -> NSPoint { NSPoint(x: ox + x * s, y: lh - (oy + y * s)) }
-  lo.move(to: pt(14, 8)); lo.curve(to: pt(12, 4), controlPoint1: pt(14, 5.8), controlPoint2: pt(13.1, 4))
-  lo.line(to: pt(6, 4)); lo.curve(to: pt(4, 6), controlPoint1: pt(4.9, 4), controlPoint2: pt(4, 4.9))
-  lo.line(to: pt(4, 18)); lo.curve(to: pt(6, 20), controlPoint1: pt(4, 19.1), controlPoint2: pt(4.9, 20))
-  lo.line(to: pt(12, 20)); lo.curve(to: pt(14, 16), controlPoint1: pt(13.1, 20), controlPoint2: pt(14, 18.2))
-  lo.move(to: pt(9, 12)); lo.line(to: pt(21, 12))
-  lo.move(to: pt(18, 9)); lo.line(to: pt(21, 12)); lo.line(to: pt(18, 15))
-  grayIcon.setStroke(); lo.lineWidth = 1.6 * s * (24.0 / 18.0)
-  lo.lineCapStyle = .round; lo.lineJoinStyle = .round; lo.stroke()
+  brand.draw(at: NSPoint(x: 46, y: lh - headC - brandFont.capHeight / 2 + brandFont.descender))
 
   // — скелет дашборда: как в src/app/(app)/loading.tsx —
   // приветствие по центру + круглая кнопка справа, сумма, 6 квадратных плиток
   let x = 16.0, cw = lw - 32
-  var y = statusH + 54 + 16 + 10
+  var y = headC + 12 + 12 + 10
   bar((lw - 210) / 2, y + 11, 210, 24, 8, skel)            // «Привет, Виктория!»
   bar(lw - 8 - 46, y, 46, 46, 23, skel)                    // круглая кнопка нового дня
   y += 46 + 32

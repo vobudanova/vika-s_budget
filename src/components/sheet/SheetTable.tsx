@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ActionIcon,
@@ -52,6 +52,7 @@ export function SheetTable({
   minWidth = 900,
   firstColWidth = 230,
   onCell,
+  focusCol,
 }: {
   columns: SheetColumn[];
   sections: SheetSection[];
@@ -68,6 +69,8 @@ export function SheetTable({
   minWidth?: number;
   firstColWidth?: number;
   onCell?: (q: CellClick) => void;
+  /** колонка, которую при открытии прокрутить в центр (например, сегодняшний день) */
+  focusCol?: number;
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(sections.filter((s) => COLLAPSIBLE.has(s.key)).map((s) => [s.key, true])),
@@ -78,6 +81,36 @@ export function SheetTable({
   const isMobile = useMediaQuery(`(max-width: ${em(768)})`, false);
   const [scrolledX, setScrolledX] = useState(false);
   const shrink = isMobile && scrolledX;
+
+  // Вертикальный скролл живёт внутри таблицы: только так прилипают шапка
+  // с числами и строка «Начисленные» (sticky не работает сквозь overflow-x)
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [viewH, setViewH] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = wrapRef.current;
+      if (!el) return;
+      setViewH(Math.max(360, window.innerHeight - el.getBoundingClientRect().top - window.scrollY - 20));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
+  // Текущий месяц открывается с сегодняшним днём по центру видимой области
+  const viewportRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!focusCol) return;
+    const vp = viewportRef.current;
+    const th = vp?.querySelector<HTMLElement>(`th[data-col="${focusCol}"]`);
+    if (!vp || !th) return;
+    const stickyW = vp.querySelector('th')?.offsetWidth ?? firstColWidth;
+    const target =
+      th.offsetLeft + th.offsetWidth / 2 - stickyW - (vp.clientWidth - stickyW) / 2;
+    vp.scrollLeft = Math.max(0, target);
+    setScrolledX(vp.scrollLeft > 8);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusCol]);
 
   const firstCol: React.CSSProperties = {
     position: 'sticky',
@@ -94,11 +127,61 @@ export function SheetTable({
     ? `calc(22vw - ${2 * CELL_PX}px)`
     : `${firstColWidth - 2 * CELL_PX}px`;
 
+  const renderTopRow = (r: (typeof topRows)[number], last: boolean, inHead = false) => (
+    <Table.Tr key={r.label}>
+      <Table.Td
+        style={{
+          ...firstCol,
+          // жирная линия — фоном в каждой ячейке строки (высота совпадает везде),
+          // родная межстрочная граница подавляется
+          ...(last ? { background: bottomLineBg(2), borderBottomStyle: 'hidden' as const } : null),
+        }}
+      >
+        <FirstCellBox w={cellBoxWidth}>
+          <Text fz={FS} fw={r.muted ? 400 : 700} c={r.muted ? 'gray.5' : undefined} truncate>
+            {r.label}
+          </Text>
+        </FirstCellBox>
+      </Table.Td>
+      <NumCell
+        v={r.total}
+        strong={!r.muted}
+        muted={r.muted}
+        ta="center"
+        bg={r.totalBg ?? (inHead ? 'var(--mantine-color-white)' : undefined)}
+        thickBottom={last}
+        onClick={
+          onCell && r.cellKey
+            ? () => onCell({ section: r.cellKey!, row: null, col: 'total', rowTitle: r.label })
+            : undefined
+        }
+      />
+      {columns.map((c) => (
+        <NumCell
+          key={c.key}
+          v={r.values[c.key]}
+          strong={!r.muted}
+          muted={r.muted}
+          ta="center"
+          // в прилипающей шапке ячейки непрозрачны — контент не просвечивает
+          bg={inHead ? 'var(--mantine-color-white)' : undefined}
+          thickBottom={last}
+          onClick={
+            onCell && r.cellKey
+              ? () => onCell({ section: r.cellKey!, row: null, col: c.key, rowTitle: r.label })
+              : undefined
+          }
+        />
+      ))}
+    </Table.Tr>
+  );
+
   return (
-    <Card p={0}>
+    <Card p={0} ref={wrapRef}>
       <ScrollArea
-        type="auto"
-        offsetScrollbars
+        type="never"
+        h={viewH ?? undefined}
+        viewportRef={viewportRef}
         onScrollPositionChange={({ x }) => setScrolledX(x > 8)}
       >
         <Table
@@ -124,6 +207,7 @@ export function SheetTable({
               {columns.map((c) => (
                 <Table.Th
                   key={c.key}
+                  data-col={c.key}
                   ta="center"
                   px={CELL_PX}
                   py={HEAD_PY}
@@ -148,61 +232,7 @@ export function SheetTable({
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {topRows.map((r, i) => {
-              // под последней строкой шапки («Фактические») — жирная граница
-              const last = i === topRows.length - 1;
-              return (
-                <Table.Tr key={r.label}>
-                  <Table.Td
-                    style={{
-                      ...firstCol,
-                      // жирная линия — фоном в каждой ячейке строки (высота совпадает везде),
-                      // родная межстрочная граница подавляется
-                      ...(last ? { background: bottomLineBg(2), borderBottomStyle: 'hidden' as const } : null),
-                    }}
-                  >
-                    <FirstCellBox w={cellBoxWidth}>
-                      <Text
-                        fz={FS}
-                        fw={r.muted ? 400 : 700}
-                        c={r.muted ? 'gray.5' : undefined}
-                        truncate
-                      >
-                        {r.label}
-                      </Text>
-                    </FirstCellBox>
-                  </Table.Td>
-                  <NumCell
-                    v={r.total}
-                    strong={!r.muted}
-                    muted={r.muted}
-                    ta="center"
-                    bg={r.totalBg}
-                    thickBottom={last}
-                    onClick={
-                      onCell && r.cellKey
-                        ? () => onCell({ section: r.cellKey!, row: null, col: 'total', rowTitle: r.label })
-                        : undefined
-                    }
-                  />
-                  {columns.map((c) => (
-                    <NumCell
-                      key={c.key}
-                      v={r.values[c.key]}
-                      strong={!r.muted}
-                      muted={r.muted}
-                      ta="center"
-                      thickBottom={last}
-                      onClick={
-                        onCell && r.cellKey
-                          ? () => onCell({ section: r.cellKey!, row: null, col: c.key, rowTitle: r.label })
-                          : undefined
-                      }
-                    />
-                  ))}
-                </Table.Tr>
-              );
-            })}
+            {topRows.map((r, i) => renderTopRow(r, i === topRows.length - 1))}
 
             {sections.map((s) => (
               <Section

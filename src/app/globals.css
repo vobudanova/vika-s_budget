@@ -9,6 +9,12 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Крестик шторки выведен из tab-обхода (FormDrawer), но фокус-трап всё равно
+   ставит на него программный фокус при открытии — кольцо не рисуем */
+.mantine-Drawer-close {
+  outline: none !important;
+}
+
 /* Все суммы — Golos с табличными цифрами: одинаковая ширина знаков,
    чистый ноль, единый стиль с остальным текстом. */
 .money {
@@ -78,6 +84,8 @@ body {
   }
 
   .mantine-AppShell-main {
+    /* шапки нет — сверху бережём зону статус-бара, снизу — home-индикатор */
+    padding-top: calc(var(--app-shell-padding, 16px) + env(safe-area-inset-top, 0px));
     padding-bottom: calc(var(--app-shell-padding, 16px) + env(safe-area-inset-bottom, 0px));
   }
 

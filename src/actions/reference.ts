@@ -277,3 +277,35 @@ export async function listEditRefs() {
     accounts: (accs.rows as any[]).map((a) => ({ id: Number(a.id), name: a.name as string })),
   };
 }
+
+export async function renameIncomeSource(id: number, name: string): Promise<ActionResult> {
+  try {
+    const clean = name.trim();
+    if (!clean) return { ok: false, error: 'Пустое название' };
+    await db.update(incomeSources).set({ name: clean }).where(eq(incomeSources.id, id));
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function deleteIncomeSource(id: number): Promise<ActionResult> {
+  try {
+    const used = await db.execute(sql`
+      SELECT count(*) AS tx FROM transactions WHERE income_source_id = ${id}
+    `);
+    const tx = Number((used.rows as any[])[0]?.tx ?? 0);
+    if (tx > 0) {
+      return {
+        ok: false,
+        error: `По источнику есть поступления — ${tx} шт. Перенесите или удалите их сначала.`,
+      };
+    }
+    await db.delete(incomeSources).where(eq(incomeSources.id, id));
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}

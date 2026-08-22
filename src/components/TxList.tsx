@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import {
   ActionIcon,
   Button,
@@ -128,19 +128,21 @@ function EditModal({ t, onClose }: { t: TxRow | null; onClose: () => void }) {
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [refs, setRefs] = useState<EditRefs | null>(null);
-  const [opened, setOpened] = useState(false);
 
   // Синхронизация при открытии; выражение показывается как введено («300+500-200»)
-  if (t && !opened) {
+  useEffect(() => {
+    if (!t) return;
     setAmount(t.amountExpr ?? fmtMoney(Math.abs(t.amount)).replace(/[  ₽]/g, ''));
     setNote(t.note ?? '');
     setDate(t.date);
     setCategoryId(t.categoryId ? String(t.categoryId) : null);
     setAccountId(t.accountId ? String(t.accountId) : null);
-    setOpened(true);
-    if (!refs) listEditRefs().then(setRefs);
-  }
-  if (!t && opened) setOpened(false);
+  }, [t]);
+
+  // Справочники подгружаются один раз при первом открытии
+  useEffect(() => {
+    if (t && !refs) listEditRefs().then(setRefs);
+  }, [t, refs]);
 
   const save = () =>
     startTransition(async () => {

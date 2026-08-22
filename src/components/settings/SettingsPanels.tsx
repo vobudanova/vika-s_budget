@@ -24,9 +24,11 @@ import {
   createFundCategory,
   createIncomeSource,
   deleteAccount,
+  deleteIncomeSource,
   deleteCategoryHard,
   getCategoryUsage,
   renameAccount,
+  renameIncomeSource,
   renameCategory,
   setCategoryPendingDelete,
   toggleAccountActive,
@@ -389,6 +391,7 @@ const SOURCE_TYPES = [
 function IncomePanel({ sources }: { sources: Source[] }) {
   const [name, setName] = useState('');
   const [type, setType] = useState<string | null>('one_off');
+  const [renaming, setRenaming] = useState<Source | null>(null);
   const [pending, startTransition] = useTransition();
 
   const add = () =>
@@ -406,7 +409,8 @@ function IncomePanel({ sources }: { sources: Source[] }) {
           Добавить
         </Button>
       </Group>
-      <Table maw={560} verticalSpacing={4} fz="sm">
+      <RenameSourceDrawer source={renaming} onClose={() => setRenaming(null)} />
+      <Table maw={620} verticalSpacing={4} fz="sm">
         <Table.Thead>
           <Table.Tr>
             <Table.Th>Источник</Table.Th>
@@ -415,7 +419,7 @@ function IncomePanel({ sources }: { sources: Source[] }) {
         </Table.Thead>
         <Table.Tbody>
           {sources.map((s) => (
-            <SourceRow key={s.id} s={s} />
+            <SourceRow key={s.id} s={s} onRename={() => setRenaming(s)} />
           ))}
         </Table.Tbody>
       </Table>
@@ -423,7 +427,7 @@ function IncomePanel({ sources }: { sources: Source[] }) {
   );
 }
 
-function SourceRow({ s }: { s: Source }) {
+function SourceRow({ s, onRename }: { s: Source; onRename: () => void }) {
   const [expected, setExpected] = useState<number | string>(s.expectedMonthly ?? '');
   const [pending, startTransition] = useTransition();
   const changed = (Number(expected) || 0) !== (s.expectedMonthly ?? 0);
@@ -433,6 +437,16 @@ function SourceRow({ s }: { s: Source }) {
         await updateIncomeExpected(s.id, expected === '' ? null : Number(expected)),
         'Сохранено',
       );
+    });
+
+  const remove = () =>
+    confirmDanger({
+      title: 'Удалить источник',
+      message: `Источник «${s.name}» будет удалён. Удаление возможно, только если по нему нет поступлений.`,
+      onConfirm: () =>
+        startTransition(async () => {
+          notify(await deleteIncomeSource(s.id), 'Источник удалён');
+        }),
     });
   return (
     <Table.Tr>
@@ -458,9 +472,55 @@ function SourceRow({ s }: { s: Source }) {
               <IconCheck size={14} />
             </ActionIcon>
           )}
+          <Tooltip label="Переименовать">
+            <ActionIcon variant="subtle" color="gray" size="sm" onClick={onRename}>
+              <IconPencil size={14} stroke={1.6} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label="Удалить">
+            <ActionIcon variant="subtle" color="red" size="sm" onClick={remove}>
+              <IconTrash size={14} stroke={1.6} />
+            </ActionIcon>
+          </Tooltip>
         </Group>
       </Table.Td>
     </Table.Tr>
+  );
+}
+
+function RenameSourceDrawer({ source, onClose }: { source: Source | null; onClose: () => void }) {
+  const [value, setValue] = useState('');
+  const [opened, setOpened] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  if (source && !opened) {
+    setValue(source.name);
+    setOpened(true);
+  }
+  if (!source && opened) setOpened(false);
+
+  const save = () =>
+    startTransition(async () => {
+      if (!source) return;
+      const res = await renameIncomeSource(source.id, value);
+      notify(res, 'Источник переименован');
+      if (res.ok) onClose();
+    });
+
+  return (
+    <FormDrawer opened={!!source} onClose={onClose} title="Переименовать источник" desktopSize="sm">
+      <Stack gap="sm">
+        <TextInput label="Название" value={value} onChange={(e) => setValue(e.currentTarget.value)} autoFocus />
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>
+            Отмена
+          </Button>
+          <Button onClick={save} loading={pending} disabled={!value.trim()}>
+            Сохранить
+          </Button>
+        </Group>
+      </Stack>
+    </FormDrawer>
   );
 }
 

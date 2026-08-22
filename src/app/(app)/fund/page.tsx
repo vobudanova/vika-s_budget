@@ -23,7 +23,7 @@ import { todayISO } from '@/lib/dates';
 import { fmtMoney } from '@/lib/money';
 import { WipeButton } from '@/components/WipeButton';
 
-export const metadata = { title: 'Фонд КС' };
+export const metadata = { title: 'КС' };
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +38,7 @@ export default async function FundPage() {
   return (
     <Stack gap="md">
       <PageHeader
-        title="Фонд КС"
+        title="КС"
         subtitle={
           <>
             Краткосрочные сбережения · остаток {fmtMoney(fund.totalBalance)} · план{' '}

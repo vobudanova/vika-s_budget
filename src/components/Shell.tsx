@@ -10,8 +10,6 @@ import {
   NavLink,
   ScrollArea,
   Text,
-  ActionIcon,
-  Tooltip,
   Stack,
   Box,
 } from '@mantine/core';
@@ -27,9 +25,7 @@ import {
   IconTrendingUp,
   IconWallet,
   IconSettings,
-  IconLogout,
 } from '@tabler/icons-react';
-import { logout } from '@/actions/auth';
 import { PullToRefresh } from './PullToRefresh';
 
 type Item = { href: string; prefix: string; label: string; icon: React.ReactNode; exact?: boolean };
@@ -62,7 +58,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       items: [
         { href: '/assets', prefix: '/assets', label: 'Амортизация', icon: <IconHourglassLow size={18} stroke={1.6} /> },
         { href: '/cap', prefix: '/cap', label: 'КАП', icon: <IconTargetArrow size={18} stroke={1.6} /> },
-        { href: '/fund', prefix: '/fund', label: 'Фонд КС', icon: <IconPigMoney size={18} stroke={1.6} /> },
+        { href: '/fund', prefix: '/fund', label: 'КС', icon: <IconPigMoney size={18} stroke={1.6} /> },
       ],
     },
     {
@@ -81,62 +77,54 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const wide =
     pathname.startsWith('/month') || pathname.startsWith('/year') || pathname.startsWith('/cap');
 
+  const brand = (
+    <Text
+      component={Link}
+      href="/"
+      fz={17}
+      fw={600}
+      lts="-0.02em"
+      c="dark.8"
+      style={{ textDecoration: 'none' }}
+      onClick={close}
+    >
+      Вика
+      <Text span inherit c="ink.7">
+        .Salmon
+      </Text>
+    </Text>
+  );
+
   return (
     <AppShell
-      // высота шапки включает safe-area сверху (standalone на iPhone)
-      header={{ height: 'calc(54px + env(safe-area-inset-top, 0px))' }}
+      // без шапки: она перекрывала контент при скролле; логотип живёт в навбаре,
+      // на мобильном — в строке над контентом (скроллится вместе со страницей)
       navbar={{ width: 224, breakpoint: 'sm', collapsed: { mobile: !opened } }}
       padding="md"
       styles={{
-        header: { backgroundColor: 'var(--paper)' },
         navbar: { backgroundColor: 'var(--paper)' },
         main: { backgroundColor: 'var(--paper)' },
       }}
     >
-      <AppShell.Header withBorder={false}>
-        <Group
-          h="100%"
-          px="md"
-          justify="space-between"
-          wrap="nowrap"
-          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
-        >
-          <Group gap="sm" wrap="nowrap">
-            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" aria-label="Меню" />
-            <Text
-              component={Link}
-              href="/"
-              fz={17}
-              fw={600}
-              lts="-0.02em"
-              c="dark.8"
-              style={{ textDecoration: 'none' }}
-              onClick={close}
-            >
-              Вика
-              <Text span inherit c="ink.7">
-                .Salmon
-              </Text>
-            </Text>
-          </Group>
-          <form action={logout}>
-            <Tooltip label="Выйти">
-              <ActionIcon type="submit" variant="subtle" color="gray" aria-label="Выйти">
-                <IconLogout size={18} stroke={1.6} />
-              </ActionIcon>
-            </Tooltip>
-          </form>
-        </Group>
-      </AppShell.Header>
-
       <AppShell.Navbar
         withBorder={false}
         style={{
           padding: 'var(--mantine-spacing-sm)',
           // p="sm" даёт инлайновый padding и перебил бы safe-area из globals.css
+          paddingTop: 'calc(var(--mantine-spacing-sm) + env(safe-area-inset-top, 0px))',
           paddingBottom: 'calc(var(--mantine-spacing-sm) + env(safe-area-inset-bottom, 0px))',
         }}
       >
+        <Group px="sm" pt={6} pb="md" justify="space-between" wrap="nowrap">
+          {brand}
+          <Burger
+            opened
+            onClick={close}
+            hiddenFrom="sm"
+            size="sm"
+            aria-label="Закрыть меню"
+          />
+        </Group>
         <ScrollArea type="never" style={{ flex: 1 }}>
           <Stack gap="xs">
             {NAV.map((group, i) => (
@@ -177,6 +165,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       <AppShell.Main>
         <PullToRefresh />
+        {/* Мобильная строка вместо шапки: в потоке страницы, не перекрывает контент */}
+        <Group hiddenFrom="sm" gap="sm" wrap="nowrap" mb="sm">
+          <Burger opened={false} onClick={toggle} size="sm" aria-label="Меню" />
+          {brand}
+        </Group>
         {/* Таблицы месяца и года разворачиваются на всю ширину экрана */}
         <Box maw={wide ? undefined : 1060} mx="auto">
           {children}

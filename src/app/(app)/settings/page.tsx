@@ -1,9 +1,10 @@
-import { Stack } from '@mantine/core';
+import { Button, Stack } from '@mantine/core';
 import { asc } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { PageHeader } from '@/components/PageHeader';
 import { SettingsPanels } from '@/components/settings/SettingsPanels';
 import { getSetting } from '@/queries/core';
+import { logout } from '@/actions/auth';
 import { toNum } from '@/lib/money';
 
 export const metadata = { title: 'Настройки' };
@@ -22,7 +23,17 @@ export default async function SettingsPage() {
 
   return (
     <Stack gap="md">
-      <PageHeader title="Настройки" subtitle="Справочники и параметры" />
+      <PageHeader
+        title="Настройки"
+        subtitle="Справочники и параметры"
+        right={
+          <form action={logout}>
+            <Button type="submit" variant="default">
+              Выйти
+            </Button>
+          </form>
+        }
+      />
       <SettingsPanels
         inflationRate={inflationRate}
         groups={groups.map((g) => ({ id: g.id, name: g.name }))}

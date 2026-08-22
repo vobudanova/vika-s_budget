@@ -29,6 +29,9 @@ export function FormDrawer({
       position={isMobile ? 'bottom' : 'right'}
       size={isMobile ? '85%' : desktopSize}
       padding="lg"
+      // авто-фокус при открытии попадал на крестик и рисовал фокус-обводку;
+      // Esc и клик закрывают как раньше, в формах фокус сразу в первое поле
+      closeButtonProps={{ tabIndex: -1 }}
       title={
         typeof title === 'string' ? (
           <Text fw={600} fz="md">
