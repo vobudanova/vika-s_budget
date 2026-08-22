@@ -22,6 +22,7 @@ import { getReference, getTransactions } from '@/queries/core';
 import { categorySelectData } from '@/components/tx-helpers';
 import { todayISO, RU_MONTHS } from '@/lib/dates';
 import { fmtMoney, toNum } from '@/lib/money';
+import { WipeButton } from '@/components/WipeButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -148,6 +149,7 @@ export default async function IncomePage() {
           <TxList items={recent.slice(0, 15)} showDate emptyText="Доходов в этом году пока нет" />
         </Stack>
       </Card>
+      <WipeButton scope={{ scope: 'income' }} label="все записи доходов" />
     </Stack>
   );
 }

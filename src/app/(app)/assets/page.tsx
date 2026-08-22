@@ -19,6 +19,7 @@ import { getReference, getSetting } from '@/queries/core';
 import { AssetActions, NewPurchaseButton } from '@/components/assets/AssetActions';
 import { fmtMoney } from '@/lib/money';
 import { dateShort } from '@/lib/dates';
+import { WipeButton } from '@/components/WipeButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,10 +60,7 @@ export default async function AssetsPage() {
 
       {assets.length === 0 && (
         <Card>
-          <Text c="dimmed">
-            Покупок пока нет. Добавьте первую — трата, график амортизации и цель КАП создадутся
-            одной формой.
-          </Text>
+          <Text c="dimmed">Покупок пока нет.</Text>
         </Card>
       )}
 
@@ -93,6 +91,7 @@ export default async function AssetsPage() {
           <AssetTable rows={finished} accounts={moneyAccounts} finished />
         </Card>
       )}
+      <WipeButton scope={{ scope: 'assets' }} label="все покупки, графики амортизации и их КАП" />
     </Stack>
   );
 }
@@ -111,13 +110,13 @@ function AssetTable({
       <Table miw={820} verticalSpacing={9} horizontalSpacing={12} fz="sm">
         <TableThead>
           <TableTr>
-            <TableTh>Покупка</TableTh>
-            <TableTh>Дата</TableTh>
-            <TableTh ta="right">Цена</TableTh>
-            <TableTh ta="right">Срок</TableTh>
-            <TableTh ta="right">₽/мес</TableTh>
-            <TableTh ta="right">Пред · тек · ост</TableTh>
-            <TableTh>КАП</TableTh>
+            <TableTh ta="center">Покупка</TableTh>
+            <TableTh ta="center">Дата</TableTh>
+            <TableTh ta="center">Цена</TableTh>
+            <TableTh ta="center">Срок</TableTh>
+            <TableTh ta="center">₽/мес</TableTh>
+            <TableTh ta="center">пред · тек · след</TableTh>
+            <TableTh ta="center">КАП</TableTh>
             <TableTh w={40}></TableTh>
           </TableTr>
         </TableThead>
@@ -167,6 +166,7 @@ function AssetTable({
                   assetId={a.id}
                   name={a.name}
                   disposed={!!a.disposedAt}
+                  hasCap={!!a.goalId && !a.goalSpentAt}
                   accounts={accounts}
                 />
               </TableTd>

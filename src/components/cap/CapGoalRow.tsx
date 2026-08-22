@@ -4,13 +4,13 @@ import { useState, useTransition } from 'react';
 import {
   Badge,
   Button,
-  Card,
   Group,
   Loader,
   NumberInput,
-  Progress,
   Select,
   Stack,
+  TableTd,
+  TableTr,
   Text,
   Tooltip,
   UnstyledButton,
@@ -21,13 +21,10 @@ import { spendCapGoal, toggleCapContribution } from '@/actions/cap';
 import type { CapGoalOverview } from '@/queries/cap';
 import { Money } from '@/components/Money';
 import { fmtMoney, round2 } from '@/lib/money';
-import { RU_MONTH_SHORT, dateShort } from '@/lib/dates';
+import { RU_MONTH_SHORT, dateShort, ymOf } from '@/lib/dates';
 import { todayLocalISO } from '@/components/assets/today';
 
-const STATUS_META: Record<
-  CapGoalOverview['status'],
-  { label: string; color: string }
-> = {
+const STATUS_META: Record<CapGoalOverview['status'], { label: string; color: string }> = {
   not_started: { label: 'не начато', color: 'gray' },
   in_progress: { label: 'в процессе', color: 'blue' },
   behind: { label: 'не хватает', color: 'orange' },
@@ -36,24 +33,21 @@ const STATUS_META: Record<
   spent: { label: 'потрачено', color: 'gray' },
 };
 
-export function CapGoalCard({
+export function CapGoalRow({
   goal,
-  year,
   currentYm,
   otherGoals,
   returnAccounts,
 }: {
   goal: CapGoalOverview;
-  year: number;
   currentYm: string;
   otherGoals: { id: number; name: string; remaining: number }[];
   returnAccounts: { id: number; name: string }[];
 }) {
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [spendOpen, setSpendOpen] = useState(false);
   const [busyYm, setBusyYm] = useState<string | null>(null);
   const meta = STATUS_META[goal.status];
-  const pct = goal.target > 0 ? Math.min(100, (goal.contributed / goal.target) * 100) : 0;
 
   const toggle = (ym: string) => {
     setBusyYm(ym);
@@ -64,116 +58,128 @@ export function CapGoalCard({
     });
   };
 
+  // флажки: с месяца начала амортизации по декабрь текущего года
+  const startYm = goal.startDate ? ymOf(goal.startDate) : (goal.firstOwnYm ?? currentYm);
+  const startYear = Number(startYm.slice(0, 4));
+  const startMonth = Number(startYm.slice(5, 7));
+  const currentYear = Number(currentYm.slice(0, 4));
+  const years: { year: number; months: number[] }[] = [];
+  for (let y = Math.min(startYear, currentYear); y <= currentYear; y++) {
+    const from = y === startYear ? startMonth : 1;
+    years.push({ year: y, months: Array.from({ length: 12 - from + 1 }, (_, i) => from + i) });
+  }
+
   return (
-    <Card>
-      <Stack gap="xs">
-        <Group justify="space-between" wrap="nowrap" align="flex-start">
-          <Text fw={600} fz="sm" style={{ lineHeight: 1.3 }}>
-            {goal.name}
-          </Text>
+    <TableTr>
+      <TableTd maw={220}>
+        <Text fz="sm" fw={500} truncate>
+          {goal.name}
+        </Text>
+      </TableTd>
+      <TableTd ta="right" className="money">
+        {goal.startDate ? dateShort(goal.startDate) : '—'}
+      </TableTd>
+      <TableTd ta="right">
+        <Money value={goal.monthly} fz="sm" />
+      </TableTd>
+      <TableTd ta="right">
+        <Money value={goal.contributed} fz="sm" />
+      </TableTd>
+      <TableTd ta="right">
+        <Money value={goal.remaining} fz="sm" c={goal.remaining > 0 ? undefined : 'dimmed'} />
+      </TableTd>
+      <TableTd ta="right">
+        <Money value={goal.target} fz="sm" fw={600} />
+      </TableTd>
+      <TableTd style={{ minWidth: 130 }}>
+        <Group gap={6} wrap="nowrap">
           <Badge variant="light" color={meta.color} size="sm" style={{ flexShrink: 0 }}>
             {meta.label}
             {goal.status === 'behind' && ` −${fmtMoney(goal.behindAmount)}`}
           </Badge>
-        </Group>
-
-        <Progress value={pct} size={8} radius="xl" color={goal.status === 'behind' ? 'orange' : 'ink'} />
-        <Group justify="space-between">
-          <Text fz="xs" c="dimmed" className="money">
-            {fmtMoney(goal.contributed)} из {fmtMoney(goal.target)}
-          </Text>
-          <Text fz="xs" c="dimmed" className="money">
-            взнос {fmtMoney(goal.monthly)}/мес
-          </Text>
-        </Group>
-
-        {goal.status !== 'spent' && (
-          <Group gap={4} wrap="wrap">
-            {RU_MONTH_SHORT.map((label, i) => {
-              const ym = `${year}-${String(i + 1).padStart(2, '0')}`;
-              const flag = goal.monthsFlags[ym];
-              const isFuture = ym > currentYm;
-              const checked = !!flag;
-              return (
-                <Tooltip
-                  key={ym}
-                  label={
-                    checked
-                      ? `${fmtMoney(flag!.amount)}${flag!.sent ? ' · отправлен' : ' · не отправлен'}`
-                      : 'Отметить взнос'
-                  }
-                >
-                  <UnstyledButton
-                    onClick={() => !isFuture && toggle(ym)}
-                    disabled={isFuture || pending}
-                    aria-label={`Взнос за месяц ${i + 1}`}
-                    style={{
-                      width: 26,
-                      height: 24,
-                      borderRadius: 6,
-                      fontSize: 11,
-                      fontWeight: 600,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: checked
-                        ? flag!.sent
-                          ? 'var(--mantine-color-ink-7)'
-                          : 'var(--mantine-color-ink-1)'
-                        : 'var(--mantine-color-gray-1)',
-                      color: checked
-                        ? flag!.sent
-                          ? '#fff'
-                          : 'var(--mantine-color-ink-8)'
-                        : isFuture
-                          ? 'var(--mantine-color-gray-4)'
-                          : 'var(--mantine-color-gray-6)',
-                      cursor: isFuture ? 'default' : 'pointer',
-                    }}
-                  >
-                    {busyYm === ym ? <Loader size={12} color={flag?.sent ? 'white' : 'ink'} /> : label}
-                  </UnstyledButton>
-                </Tooltip>
-              );
-            })}
-          </Group>
-        )}
-
-        {goal.status === 'waiting' && goal.waitUntil && (
-          <Text fz="xs" c="teal.8">
-            Цель достигнута — ждёт до {dateShort(goal.waitUntil)}, чтобы месяц последнего взноса
-            зачёлся.
-          </Text>
-        )}
-        {(goal.status === 'ready' || goal.status === 'waiting') && (
-          <Group>
-            <Button
-              size="compact-sm"
-              variant={goal.status === 'ready' ? 'filled' : 'light'}
-              onClick={() => setSpendOpen(true)}
-            >
+          {(goal.status === 'ready' || goal.status === 'waiting') && (
+            <Button size="compact-xs" variant={goal.status === 'ready' ? 'filled' : 'light'} onClick={() => setSpendOpen(true)}>
               Потратить…
             </Button>
-          </Group>
-        )}
-        {goal.spentAt && (
-          <Text fz="xs" c="dimmed">
-            потрачено {dateShort(goal.spentAt)}
-          </Text>
-        )}
-      </Stack>
-      <SpendModal
+          )}
+        </Group>
+      </TableTd>
+      <TableTd>
+        <Group gap={8} wrap="wrap" style={{ rowGap: 4 }}>
+          {years.map(({ year, months }) => (
+            <Group key={year} gap={3} wrap="nowrap">
+              {years.length > 1 && (
+                <Text fz={10} c="dimmed" className="money" style={{ flexShrink: 0 }}>
+                  ’{String(year).slice(2)}
+                </Text>
+              )}
+              {months.map((m) => {
+                const ym = `${year}-${String(m).padStart(2, '0')}`;
+                const flag = goal.monthsFlags[ym];
+                const isFuture = ym > currentYm;
+                const checked = !!flag;
+                return (
+                  <Tooltip
+                    key={ym}
+                    label={
+                      checked
+                        ? `${fmtMoney(flag!.amount)}${flag!.sent ? ' · отправлен' : ' · не отправлен'}`
+                        : 'Отметить взнос'
+                    }
+                  >
+                    <UnstyledButton
+                      onClick={() => !isFuture && toggle(ym)}
+                      disabled={isFuture || busyYm !== null}
+                      aria-label={`Взнос ${ym}`}
+                      style={{
+                        width: 24,
+                        height: 22,
+                        borderRadius: 6,
+                        fontSize: 10,
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: checked
+                          ? flag!.sent
+                            ? 'var(--mantine-color-ink-7)'
+                            : 'var(--mantine-color-ink-1)'
+                          : 'var(--mantine-color-gray-1)',
+                        color: checked
+                          ? flag!.sent
+                            ? '#fff'
+                            : 'var(--mantine-color-ink-8)'
+                          : isFuture
+                            ? 'var(--mantine-color-gray-4)'
+                            : 'var(--mantine-color-gray-6)',
+                        cursor: isFuture ? 'default' : 'pointer',
+                      }}
+                    >
+                      {busyYm === ym ? (
+                        <Loader size={11} color={flag?.sent ? 'white' : 'ink'} />
+                      ) : (
+                        RU_MONTH_SHORT[m - 1]
+                      )}
+                    </UnstyledButton>
+                  </Tooltip>
+                );
+              })}
+            </Group>
+          ))}
+        </Group>
+      </TableTd>
+      <SpendDrawer
         goal={goal}
         opened={spendOpen}
         onClose={() => setSpendOpen(false)}
         otherGoals={otherGoals}
         returnAccounts={returnAccounts}
       />
-    </Card>
+    </TableTr>
   );
 }
 
-function SpendModal({
+function SpendDrawer({
   goal,
   opened,
   onClose,
@@ -191,6 +197,7 @@ function SpendModal({
     { goalId: null, amount: goal.contributed },
   ]);
   const [pending, startTransition] = useTransition();
+  const [returnAccountId, setReturnAccountId] = useState<string | null>(null);
 
   const distributed = round2(
     targets.reduce((s, t) => s + (typeof t.amount === 'number' ? t.amount : Number(t.amount) || 0), 0),
@@ -234,8 +241,6 @@ function SpendModal({
         onClose();
       }
     });
-
-  const [returnAccountId, setReturnAccountId] = useState<string | null>(null);
 
   return (
     <FormDrawer opened={opened} onClose={onClose} title={`Потратить КАП: ${goal.name}`}>

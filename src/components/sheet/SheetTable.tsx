@@ -18,25 +18,22 @@ import { IconChevronRight, IconTrash } from '@tabler/icons-react';
 import type { SheetSection, SheetRow } from '@/queries/month';
 import { fmtNumber } from '@/lib/money';
 
-/** Цветом выделяются только строки-родители особых блоков; траты остаются нейтральными. */
-export const TONE_HEADER_BG: Record<SheetSection['tone'], string> = {
-  plain: 'transparent',
-  purchases: '#FFE7C2',
-  amortization: '#E4DFF6',
-  trips: '#D8EDE3',
-  transfers: '#D9E8F8',
-  ks: '#FBDCE2',
-  savings: '#E4F0D2',
-};
-
 /** Блоки после «Прочее» — сворачиваемые, по умолчанию свёрнуты. */
 const COLLAPSIBLE = new Set(['purchases', 'amortization', 'trips', 'transfers', 'ks', 'savings']);
 
 export type SheetColumn = { key: number; label: string; href?: string; highlight?: boolean };
 
-const FS = 15; // базовый кегль (+15% к прежним 13)
-const CELL_PY = 6;
+const FS = 15;
+const CELL_PY = 6; // строки «Начисленные»/«Фактические»
+const ROW_PY = 3; // категории и подкатегории (−20% высоты)
+const HEAD_PY = 5; // шапка с числами дней/месяцами (−15% высоты)
+const HEAD_FZ = 22; // числа дней и названия месяцев (−15%)
 const CELL_PX = 14;
+
+const BORDER = 'var(--table-border-color, var(--mantine-color-gray-3))';
+/** Нижняя черта фоном: у sticky-ячеек и обычный border, и box-shadow ненадёжны на iOS. */
+const bottomLineBg = (px: number) =>
+  `linear-gradient(to top, ${BORDER} ${px}px, var(--mantine-color-white) ${px}px)`;
 
 export function SheetTable({
   columns,
@@ -48,7 +45,13 @@ export function SheetTable({
 }: {
   columns: SheetColumn[];
   sections: SheetSection[];
-  topRows: { label: string; total: number; values: number[]; muted?: boolean }[];
+  topRows: {
+    label: string;
+    total: number;
+    values: number[];
+    muted?: boolean;
+    totalBg?: string;
+  }[];
   bottomRows?: React.ReactNode;
   minWidth?: number;
   firstColWidth?: number;
@@ -69,7 +72,7 @@ export function SheetTable({
     background: 'var(--mantine-color-white)',
     zIndex: 2,
     // граница рисуется тенью: обычный border у sticky-ячейки уезжает под контент
-    boxShadow: '1px 0 0 0 var(--table-border-color, var(--mantine-color-gray-3))',
+    boxShadow: `1px 0 0 0 ${BORDER}`,
   };
 
   // min/max-width у ячеек auto-таблицы не работают — ширину колонки задаёт
@@ -96,29 +99,23 @@ export function SheetTable({
         >
           <Table.Thead>
             <Table.Tr>
-              <Table.Th
-                style={{
-                  ...firstCol,
-                  // нижняя черта тоже тенью: у sticky-ячейки collapsed-граница не рисуется
-                  boxShadow:
-                    '1px 0 0 0 var(--table-border-color, var(--mantine-color-gray-3)), inset 0 -1px 0 0 var(--table-border-color, var(--mantine-color-gray-3))',
-                }}
-              />
-              <Table.Th style={{ minWidth: 108 }} />
+              <Table.Th style={{ ...firstCol, background: bottomLineBg(1) }} />
+              <Table.Th style={{ minWidth: 108, borderBottom: `1px solid ${BORDER}` }} />
               {columns.map((c) => (
                 <Table.Th
                   key={c.key}
                   ta="center"
                   px={CELL_PX}
-                  style={{ minWidth: 86 }}
+                  py={HEAD_PY}
+                  style={{ minWidth: 86, borderBottom: `1px solid ${BORDER}` }}
                   bg={c.highlight ? 'var(--mantine-color-ink-1)' : undefined}
                 >
                   {c.href ? (
-                    <Text component={Link} href={c.href} fz={26} fw={600} c="ink.6" td="none">
+                    <Text component={Link} href={c.href} fz={HEAD_FZ} fw={600} c="ink.6" td="none">
                       {c.label}
                     </Text>
                   ) : (
-                    <Text fz={26} fw={600} c="ink.6" tt="capitalize">
+                    <Text fz={HEAD_FZ} fw={600} c="ink.6" tt="capitalize">
                       {c.label}
                     </Text>
                   )}
@@ -127,21 +124,43 @@ export function SheetTable({
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {topRows.map((r) => (
-              <Table.Tr key={r.label}>
-                <Table.Td style={firstCol}>
-                  <FirstCellBox w={cellBoxWidth}>
-                    <Text fz={FS} fw={r.muted ? 400 : 700} c={r.muted ? 'gray.5' : undefined} truncate>
-                      {r.label}
-                    </Text>
-                  </FirstCellBox>
-                </Table.Td>
-                <NumCell v={r.total} strong={!r.muted} muted={r.muted} />
-                {columns.map((c) => (
-                  <NumCell key={c.key} v={r.values[c.key]} strong={!r.muted} muted={r.muted} />
-                ))}
-              </Table.Tr>
-            ))}
+            {topRows.map((r, i) => {
+              // под последней строкой шапки («Фактические») — жирная граница
+              const last = i === topRows.length - 1;
+              return (
+                <Table.Tr key={r.label}>
+                  <Table.Td style={{ ...firstCol, background: last ? bottomLineBg(2) : undefined }}>
+                    <FirstCellBox w={cellBoxWidth}>
+                      <Text
+                        fz={FS}
+                        fw={r.muted ? 400 : 700}
+                        c={r.muted ? 'gray.5' : undefined}
+                        truncate
+                      >
+                        {r.label}
+                      </Text>
+                    </FirstCellBox>
+                  </Table.Td>
+                  <NumCell
+                    v={r.total}
+                    strong={!r.muted}
+                    muted={r.muted}
+                    ta="center"
+                    bg={r.totalBg}
+                    thickBottom={last}
+                  />
+                  {columns.map((c) => (
+                    <NumCell
+                      key={c.key}
+                      v={r.values[c.key]}
+                      strong={!r.muted}
+                      muted={r.muted}
+                      thickBottom={last}
+                    />
+                  ))}
+                </Table.Tr>
+              );
+            })}
 
             {sections.map((s) => (
               <Section
@@ -189,16 +208,11 @@ function Section({
   collapsed: boolean;
   onToggle: () => void;
 }) {
-  const headerBg = TONE_HEADER_BG[s.tone];
+  const rowPad = { paddingTop: ROW_PY, paddingBottom: ROW_PY };
   return (
     <>
-      <Table.Tr bg={headerBg === 'transparent' ? undefined : headerBg}>
-        <Table.Td
-          style={{
-            ...firstCol,
-            background: headerBg === 'transparent' ? 'var(--mantine-color-white)' : headerBg,
-          }}
-        >
+      <Table.Tr>
+        <Table.Td style={{ ...firstCol, ...rowPad }}>
           <FirstCellBox w={cellBoxWidth}>
             {collapsible ? (
               <UnstyledButton onClick={onToggle} style={{ display: 'block', width: '100%' }}>
@@ -224,15 +238,15 @@ function Section({
             )}
           </FirstCellBox>
         </Table.Td>
-        <NumCell v={s.total} strong />
+        <NumCell v={s.total} strong ta="center" py={ROW_PY} />
         {columns.map((c) => (
-          <NumCell key={c.key} v={s.dayTotals[c.key]} strong />
+          <NumCell key={c.key} v={s.dayTotals[c.key]} strong py={ROW_PY} />
         ))}
       </Table.Tr>
       {!collapsed &&
         s.rows.map((r) => (
           <Table.Tr key={r.key}>
-            <Table.Td style={firstCol}>
+            <Table.Td style={{ ...firstCol, ...rowPad }}>
               <FirstCellBox w={cellBoxWidth}>
                 <Group gap={6} wrap="nowrap">
                   <Text
@@ -254,9 +268,9 @@ function Section({
                 </Group>
               </FirstCellBox>
             </Table.Td>
-            <NumCell v={r.total} mutedTotal />
+            <NumCell v={r.total} mutedTotal ta="center" py={ROW_PY} />
             {columns.map((c) => (
-              <NumCell key={c.key} v={r.days[c.key]} />
+              <NumCell key={c.key} v={r.days[c.key]} py={ROW_PY} />
             ))}
           </Table.Tr>
         ))}
@@ -270,12 +284,21 @@ export function NumCell({
   muted,
   mutedTotal,
   diff,
+  ta = 'right',
+  py,
+  bg,
+  thickBottom,
 }: {
   v: number;
   strong?: boolean;
   muted?: boolean;
   mutedTotal?: boolean;
   diff?: boolean;
+  /** дни/месяцы — по правому краю (по умолчанию), столбец Σ — по центру */
+  ta?: 'right' | 'center';
+  py?: number;
+  bg?: string;
+  thickBottom?: boolean;
 }) {
   const isZero = Math.abs(v) < 0.005;
   const color = diff
@@ -292,7 +315,17 @@ export function NumCell({
           ? 'gray.6'
           : undefined;
   return (
-    <Table.Td ta="center" className="money" fw={strong || diff ? 700 : undefined} c={color}>
+    <Table.Td
+      ta={ta}
+      className="money"
+      fw={strong || diff ? 700 : undefined}
+      c={color}
+      style={{
+        ...(py !== undefined ? { paddingTop: py, paddingBottom: py } : null),
+        ...(bg ? { background: bg } : null),
+        ...(thickBottom ? { borderBottom: `2px solid ${BORDER}` } : null),
+      }}
+    >
       {isZero ? '0' : fmtNumber(v, 0)}
     </Table.Td>
   );

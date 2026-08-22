@@ -146,9 +146,6 @@ function TopupModal({
           value={accountId}
           onChange={setAccountId}
         />
-        <Text fz="xs" c="dimmed">
-          Все статьи получат полные плановые суммы; банковский перевод уменьшен на зачёты.
-        </Text>
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>
             Отмена

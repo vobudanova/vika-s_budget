@@ -5,6 +5,7 @@ import { getMonthTransactions } from '@/queries/core';
 import { getMonthSheet } from '@/queries/month';
 import { MonthView } from '@/components/month/MonthView';
 import { MonthSwitcher } from '@/components/month/MonthSwitcher';
+import { WipeButton } from '@/components/WipeButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +25,7 @@ export default async function MonthPage({ params }: { params: Promise<{ ym: stri
         <MonthSwitcher ym={ym} currentYm={ymOf(today)} />
       </Group>
       <MonthView ym={ym} sheet={sheet} txs={txs} today={today} />
+      <WipeButton scope={{ scope: 'month', ym }} label={`операции месяца ${ymTitle(ym)}`} />
     </Stack>
   );
 }

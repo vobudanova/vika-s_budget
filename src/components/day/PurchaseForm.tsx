@@ -157,9 +157,6 @@ export function PurchaseForm({
           Сохранить покупку
         </Button>
       </Group>
-      <Text fz="xs" c="dimmed">
-        Одна форма создаёт трату, актив, весь график амортизации и цель КАП — атомарно.
-      </Text>
     </Stack>
   );
 }

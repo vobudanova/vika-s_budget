@@ -23,8 +23,10 @@ import {
   createCategory,
   createFundCategory,
   createIncomeSource,
+  deleteAccount,
   deleteCategoryHard,
   getCategoryUsage,
+  renameAccount,
   renameCategory,
   setCategoryPendingDelete,
   toggleAccountActive,
@@ -34,6 +36,7 @@ import {
   type CategoryUsage,
 } from '@/actions/reference';
 import { saveSetting } from '@/actions/misc';
+import { confirmDanger } from '@/lib/confirm';
 
 type Cat = {
   id: number;
@@ -153,9 +156,11 @@ function CategoriesPanel({ groups, categories }: { groups: Grp[]; categories: Ca
       }
       const usage = await getCategoryUsage(c.id);
       if (usage.length === 0) {
-        if (confirm(`Категория «${c.name}» пуста. Удалить навсегда?`)) {
-          notify(await deleteCategoryHard(c.id), 'Категория удалена');
-        }
+        confirmDanger({
+          title: 'Удалить категорию',
+          message: `Категория «${c.name}» пуста. Удалить навсегда?`,
+          onConfirm: async () => notify(await deleteCategoryHard(c.id), 'Категория удалена'),
+        });
       } else {
         setDeleting({ cat: c, usage });
       }
@@ -226,12 +231,6 @@ function CategoriesPanel({ groups, categories }: { groups: Grp[]; categories: Ca
           </Stack>
         );
       })}
-      <Text fz="xs" c="dimmed">
-        Переименование меняет название везде. Удаление категории с данными сначала помечает её — на
-        страницах месяца и года будет висеть предупреждение, пока записи не перенесены; когда всё
-        обнулится, на странице года появится красная корзинка окончательного удаления.
-      </Text>
-
       <RenameModal cat={renaming} onClose={() => setRenaming(null)} />
       <DeleteModal state={deleting} onClose={() => setDeleting(null)} />
     </Stack>
@@ -256,9 +255,6 @@ function RenameModal({ cat, onClose }: { cat: Cat | null; onClose: () => void })
     <FormDrawer opened={!!cat} onClose={onClose} title="Переименовать категорию" desktopSize="sm">
       <Stack gap="sm">
         <TextInput label="Название" value={value} onChange={(e) => setValue(e.currentTarget.value)} autoFocus />
-        <Text fz="xs" c="dimmed">
-          Название изменится во всех прошлых и будущих месяцах, в годовой таблице и во всех формах.
-        </Text>
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>
             Отмена
@@ -297,11 +293,6 @@ function DeleteModal({
             </Text>
           ))}
         </Stack>
-        <Text fz="xs" c="dimmed">
-          Можно пометить категорию к удалению и продолжать работу: на страницах месяца и года будет
-          висеть предупреждение, пока записи не перенесены в другие категории. Когда всё обнулится —
-          красная корзинка на странице года удалит её навсегда.
-        </Text>
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>
             Отмена
@@ -485,6 +476,7 @@ const ACCOUNT_TYPES = [
 function AccountsPanel({ accounts }: { accounts: Account[] }) {
   const [name, setName] = useState('');
   const [type, setType] = useState<string | null>('checking');
+  const [renaming, setRenaming] = useState<Account | null>(null);
   const [pending, startTransition] = useTransition();
 
   const add = () =>
@@ -498,6 +490,16 @@ function AccountsPanel({ accounts }: { accounts: Account[] }) {
       notify(await toggleAccountActive(a.id, !a.isActive), a.isActive ? 'Счёт скрыт' : 'Счёт активен');
     });
 
+  const remove = (a: Account) =>
+    confirmDanger({
+      title: 'Удалить счёт',
+      message: `Счёт «${a.name}» будет удалён. Удаление возможно, только если по счёту нет операций и снапшотов.`,
+      onConfirm: () =>
+        startTransition(async () => {
+          notify(await deleteAccount(a.id), 'Счёт удалён');
+        }),
+    });
+
   return (
     <Stack gap="md">
       <Group align="flex-end" gap="xs" wrap="wrap">
@@ -507,24 +509,70 @@ function AccountsPanel({ accounts }: { accounts: Account[] }) {
           Добавить
         </Button>
       </Group>
-      <Stack gap={4} maw={480}>
+      <Stack gap={4} maw={520}>
         {accounts.map((a) => (
-          <Group key={a.id} justify="space-between" py={4} style={{ borderBottom: '1px solid var(--ink-line)', opacity: a.isActive ? 1 : 0.5 }}>
-            <Text fz="sm">
+          <Group key={a.id} justify="space-between" py={4} wrap="nowrap" style={{ borderBottom: '1px solid var(--ink-line)', opacity: a.isActive ? 1 : 0.5 }}>
+            <Text fz="sm" truncate>
               {a.name}{' '}
               <Text span fz="xs" c="dimmed">
                 {ACCOUNT_TYPES.find((t) => t.value === a.type)?.label ?? a.type}
               </Text>
             </Text>
-            <Button size="compact-xs" variant="subtle" color="gray" onClick={() => toggle(a)}>
-              {a.isActive ? 'Скрыть' : 'Вернуть'}
-            </Button>
+            <Group gap={2} wrap="nowrap">
+              <Tooltip label="Переименовать">
+                <ActionIcon variant="subtle" color="gray" size="sm" onClick={() => setRenaming(a)}>
+                  <IconPencil size={14} stroke={1.6} />
+                </ActionIcon>
+              </Tooltip>
+              <Button size="compact-xs" variant="subtle" color="gray" onClick={() => toggle(a)}>
+                {a.isActive ? 'Скрыть' : 'Вернуть'}
+              </Button>
+              <Tooltip label="Удалить">
+                <ActionIcon variant="subtle" color="red" size="sm" onClick={() => remove(a)}>
+                  <IconTrash size={14} stroke={1.6} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
           </Group>
         ))}
       </Stack>
-      <Text fz="xs" c="dimmed">
-        Скрытый счёт не участвует в балансах и формах, но история операций сохраняется.
-      </Text>
+      <RenameAccountDrawer account={renaming} onClose={() => setRenaming(null)} />
     </Stack>
+  );
+}
+
+function RenameAccountDrawer({ account, onClose }: { account: Account | null; onClose: () => void }) {
+  const [value, setValue] = useState('');
+  const [opened, setOpened] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  if (account && !opened) {
+    setValue(account.name);
+    setOpened(true);
+  }
+  if (!account && opened) setOpened(false);
+
+  const save = () =>
+    startTransition(async () => {
+      if (!account) return;
+      const res = await renameAccount(account.id, value);
+      notify(res, 'Счёт переименован');
+      if (res.ok) onClose();
+    });
+
+  return (
+    <FormDrawer opened={!!account} onClose={onClose} title="Переименовать счёт" desktopSize="sm">
+      <Stack gap="sm">
+        <TextInput label="Название" value={value} onChange={(e) => setValue(e.currentTarget.value)} autoFocus />
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>
+            Отмена
+          </Button>
+          <Button onClick={save} loading={pending} disabled={!value.trim()}>
+            Сохранить
+          </Button>
+        </Group>
+      </Stack>
+    </FormDrawer>
   );
 }

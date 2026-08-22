@@ -60,7 +60,12 @@ export function MonthView({
           columns={columns}
           sections={sheet.sections}
           topRows={[
-            { label: 'Начисленные', total: sheet.accruedTotal, values: sheet.accruedTotals },
+            {
+              label: 'Начисленные',
+              total: sheet.accruedTotal,
+              values: sheet.accruedTotals,
+              totalBg: 'var(--mantine-color-ink-0)',
+            },
             { label: 'Фактические', total: sheet.actualTotal, values: sheet.actualTotals, muted: true },
           ]}
         />
@@ -68,12 +73,6 @@ export function MonthView({
         <Card>
           <TxList items={txs} showDate emptyText="За месяц операций нет" />
         </Card>
-      )}
-      {mode === 'matrix' && (
-        <Text fz="xs" c="dimmed">
-          Числа в шапке — ссылки на страницу дня; подсвеченные колонки — дни, отмеченные
-          заполненными. Блоки ниже «Прочего» свёрнуты — разверните стрелкой.
-        </Text>
       )}
     </Stack>
   );

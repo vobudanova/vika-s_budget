@@ -24,10 +24,8 @@ import {
   IconHourglassLow,
   IconTargetArrow,
   IconPigMoney,
-  IconCrystalBall,
   IconTrendingUp,
   IconWallet,
-  IconScale,
   IconSettings,
   IconLogout,
 } from '@tabler/icons-react';
@@ -65,7 +63,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
         { href: '/assets', prefix: '/assets', label: 'Амортизация', icon: <IconHourglassLow size={18} stroke={1.6} /> },
         { href: '/cap', prefix: '/cap', label: 'КАП', icon: <IconTargetArrow size={18} stroke={1.6} /> },
         { href: '/fund', prefix: '/fund', label: 'Фонд КС', icon: <IconPigMoney size={18} stroke={1.6} /> },
-        { href: '/forecast', prefix: '/forecast', label: 'Прогноз', icon: <IconCrystalBall size={18} stroke={1.6} /> },
       ],
     },
     {
@@ -73,7 +70,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
       items: [
         { href: '/balance', prefix: '/balance', label: 'Баланс', icon: <IconWallet size={18} stroke={1.6} /> },
         { href: '/income', prefix: '/income', label: 'Доходы', icon: <IconTrendingUp size={18} stroke={1.6} /> },
-        { href: '/accounts', prefix: '/accounts', label: 'Счета и сверка', icon: <IconScale size={18} stroke={1.6} /> },
       ],
     },
   ];

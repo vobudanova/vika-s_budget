@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { YearView } from '@/components/year/YearView';
 import { getYearSheet } from '@/queries/year';
 import { AnchorLink } from '@/components/links';
+import { WipeButton } from '@/components/WipeButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,7 @@ export default async function YearPage({ params }: { params: Promise<{ y: string
         }
       />
       <YearView data={data} />
+      <WipeButton scope={{ scope: 'year', year: y }} label={`все операции ${y} года`} />
     </Stack>
   );
 }

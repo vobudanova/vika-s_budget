@@ -8,6 +8,7 @@ import { RU_MONTHS } from '@/lib/dates';
 import { fmtMoney } from '@/lib/money';
 import { deleteCategoryHard } from '@/actions/reference';
 import { SheetTable, type SheetColumn } from '@/components/sheet/SheetTable';
+import { confirmDanger } from '@/lib/confirm';
 
 export function YearView({ data }: { data: YearSheet }) {
   const [, startTransition] = useTransition();
@@ -25,14 +26,18 @@ export function YearView({ data }: { data: YearSheet }) {
         ? {
             ...r,
             onDelete: () =>
-              startTransition(async () => {
-                if (!confirm(`Навсегда удалить категорию «${r.name}»? Она исчезнет отовсюду.`)) return;
-                const res = await deleteCategoryHard(Number(r.key));
-                notifications.show(
-                  res.ok
-                    ? { message: `Категория «${r.name}» удалена` }
-                    : { color: 'red', message: res.error },
-                );
+              confirmDanger({
+                title: 'Удалить категорию',
+                message: `Навсегда удалить категорию «${r.name}»? Она исчезнет отовсюду.`,
+                onConfirm: () =>
+                  startTransition(async () => {
+                    const res = await deleteCategoryHard(Number(r.key));
+                    notifications.show(
+                      res.ok
+                        ? { message: `Категория «${r.name}» удалена` }
+                        : { color: 'red', message: res.error },
+                    );
+                  }),
               }),
           }
         : r,
@@ -68,11 +73,6 @@ export function YearView({ data }: { data: YearSheet }) {
         minWidth={1180}
         firstColWidth={240}
       />
-
-      <Text fz="xs" c="dimmed">
-        Компенсировано из КС за год: {fmtMoney(data.ksReimbursedYear)} · теневые расходы:{' '}
-        {fmtMoney(data.coveredYear)} — в итоги расходов не входят.
-      </Text>
     </Stack>
   );
 }

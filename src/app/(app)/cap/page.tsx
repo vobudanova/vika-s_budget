@@ -1,34 +1,39 @@
 import {
   Card,
   Group,
+  ScrollArea,
   SimpleGrid,
   Stack,
   Table,
   TableTbody,
   TableTd,
+  TableTh,
+  TableThead,
   TableTr,
   Text,
 } from '@mantine/core';
 import { PageHeader } from '@/components/PageHeader';
 import { Money } from '@/components/Money';
 import { CardLabel } from '@/components/CardLabel';
-import { CapGoalCard } from '@/components/cap/CapGoalCard';
-import { CapPaymentCard } from '@/components/cap/CapPaymentCard';
-import { getCapOverview } from '@/queries/cap';
+import { CapGoalRow } from '@/components/cap/CapGoalRow';
+import { CapPaymentButton } from '@/components/cap/CapPaymentButton';
+import { getCapOverview, type CapGoalOverview } from '@/queries/cap';
 import { getReference } from '@/queries/core';
-import { todayISO, ymOf, ymTitle, RU_MONTHS_GEN } from '@/lib/dates';
+import { todayISO, ymOf, ymTitle } from '@/lib/dates';
 import { fmtMoney } from '@/lib/money';
+import { WipeButton } from '@/components/WipeButton';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CapPage() {
   const today = todayISO();
   const currentYm = ymOf(today);
-  const year = Number(today.slice(0, 4));
   const [cap, ref] = await Promise.all([getCapOverview(), getReference()]);
 
   const activeGoals = cap.goals.filter((g) => g.status !== 'spent');
-  const spentGoals = cap.goals.filter((g) => g.status === 'spent');
+  const spentGoals = cap.goals
+    .filter((g) => g.status === 'spent')
+    .sort((a, b) => (a.spentAt ?? '').localeCompare(b.spentAt ?? ''));
   const openGoalsForTransfer = cap.goals
     .filter((g) => g.status !== 'spent' && g.remaining > 0)
     .map((g) => ({ id: g.id, name: g.name, remaining: g.remaining }));
@@ -37,27 +42,33 @@ export default async function CapPage() {
     .map((a) => ({ id: a.id, name: a.name }));
   const checkingId = ref.accounts.find((a) => a.type === 'checking')?.id ?? null;
 
+  // цели по категориям активов, внутри — по дате начала амортизации
+  const byCategory = new Map<string, CapGoalOverview[]>();
+  for (const g of activeGoals) {
+    const key = g.assetCategoryName ?? 'Без категории';
+    byCategory.set(key, [...(byCategory.get(key) ?? []), g]);
+  }
+  for (const list of byCategory.values()) {
+    list.sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''));
+  }
+
   return (
     <Stack gap="md">
       <PageHeader
         title="КАП"
-        subtitle={
-          <>
-            Компенсационные амортизационные платежи · накоплено {fmtMoney(cap.ledgerTotal)} по{' '}
-            {activeGoals.length} целям
-          </>
+        subtitle={fmtMoney(cap.ledgerTotal)}
+        right={
+          <CapPaymentButton
+            ym={currentYm}
+            pending={cap.pendingPayment}
+            total={cap.pendingTotal}
+            accounts={moneyAccounts}
+            defaultAccountId={checkingId}
+          />
         }
       />
 
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-        <CapPaymentCard
-          ym={currentYm}
-          monthTitle={RU_MONTHS_GEN[Number(currentYm.slice(5, 7)) - 1]}
-          pending={cap.pendingPayment}
-          total={cap.pendingTotal}
-          accounts={moneyAccounts}
-          defaultAccountId={checkingId}
-        />
         <Card>
           <Stack gap="sm">
             <CardLabel>Сверка КАП-фонда</CardLabel>
@@ -104,40 +115,58 @@ export default async function CapPage() {
                 </TableTr>
               </TableTbody>
             </Table>
-            <Text fz="xs" c="dimmed">
-              Деньги фонда, переведённые в другие инструменты с пометкой «размещение», продолжают
-              числиться за КАП.
-            </Text>
           </Stack>
         </Card>
       </SimpleGrid>
 
       {activeGoals.length === 0 && (
         <Card>
-          <Text c="dimmed">
-            Целей пока нет. Они создаются автоматически при вводе покупки с галкой «Копить на
-            замену».
-          </Text>
+          <Text c="dimmed">Целей пока нет.</Text>
         </Card>
       )}
 
-      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-        {activeGoals.map((g) => (
-          <CapGoalCard
-            key={g.id}
-            goal={g}
-            year={year}
-            currentYm={currentYm}
-            otherGoals={openGoalsForTransfer.filter((o) => o.id !== g.id)}
-            returnAccounts={moneyAccounts}
-          />
-        ))}
-      </SimpleGrid>
+      {[...byCategory.entries()].map(([cat, goals]) => (
+        <Card key={cat} p={0}>
+          <Group px="md" py="sm" justify="space-between">
+            <Text fw={600}>{cat}</Text>
+            <Text fz="sm" c="dimmed" className="money">
+              {fmtMoney(goals.reduce((s, g) => s + g.contributed, 0))}
+            </Text>
+          </Group>
+          <ScrollArea type="auto" offsetScrollbars>
+            <Table miw={1080} verticalSpacing={6} horizontalSpacing={12} fz="sm">
+              <TableThead>
+                <TableTr>
+                  <TableTh ta="center">Цель</TableTh>
+                  <TableTh ta="center">Начало</TableTh>
+                  <TableTh ta="center">КАП/мес</TableTh>
+                  <TableTh ta="center">Отложено</TableTh>
+                  <TableTh ta="center">Остаток</TableTh>
+                  <TableTh ta="center">Цель, ₽</TableTh>
+                  <TableTh ta="center">Статус</TableTh>
+                  <TableTh ta="center">Флажки</TableTh>
+                </TableTr>
+              </TableThead>
+              <TableTbody>
+                {goals.map((g) => (
+                  <CapGoalRow
+                    key={g.id}
+                    goal={g}
+                    currentYm={currentYm}
+                    otherGoals={openGoalsForTransfer.filter((o) => o.id !== g.id)}
+                    returnAccounts={moneyAccounts}
+                  />
+                ))}
+              </TableTbody>
+            </Table>
+          </ScrollArea>
+        </Card>
+      ))}
 
       {spentGoals.length > 0 && (
         <Card>
           <Stack gap="xs">
-            <CardLabel>Потраченные цели · {spentGoals.length}</CardLabel>
+            <CardLabel>Завершено</CardLabel>
             {spentGoals.map((g) => (
               <Group key={g.id} justify="space-between">
                 <Text fz="sm" c="dimmed">
@@ -151,6 +180,7 @@ export default async function CapPage() {
           </Stack>
         </Card>
       )}
+      <WipeButton scope={{ scope: 'cap' }} label="все цели КАП и их движения" />
     </Stack>
   );
 }

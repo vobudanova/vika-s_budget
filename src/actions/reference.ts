@@ -211,6 +211,42 @@ export async function toggleAccountActive(id: number, active: boolean): Promise<
   }
 }
 
+export async function renameAccount(id: number, name: string): Promise<ActionResult> {
+  try {
+    const clean = name.trim();
+    if (!clean) return { ok: false, error: 'Пустое название' };
+    await db.update(accounts).set({ name: clean }).where(eq(accounts.id, id));
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function deleteAccount(id: number): Promise<ActionResult> {
+  try {
+    const used = await db.execute(sql`
+      SELECT
+        (SELECT count(*) FROM transactions WHERE account_id = ${id} OR counter_account_id = ${id}) AS tx,
+        (SELECT count(*) FROM account_snapshots WHERE account_id = ${id}) AS snaps
+    `);
+    const row = (used.rows as any[])[0];
+    const tx = Number(row?.tx ?? 0);
+    const snaps = Number(row?.snaps ?? 0);
+    if (tx > 0 || snaps > 0) {
+      return {
+        ok: false,
+        error: `Счёт используется: операций — ${tx}, снапшотов — ${snaps}. Перенесите или удалите их, либо скройте счёт.`,
+      };
+    }
+    await db.delete(accounts).where(eq(accounts.id, id));
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
 export async function listAllCategories() {
   const [groups, cats] = await Promise.all([
     db.select().from(categoryGroups).orderBy(categoryGroups.sortOrder),

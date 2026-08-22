@@ -18,12 +18,15 @@ import {
   IconTag,
   IconPlayerStop,
   IconArrowBackUp,
+  IconTargetOff,
   IconTrash,
   IconPlus,
 } from '@tabler/icons-react';
 import { deleteAsset, disposeAsset, resaleAsset, undisposeAsset } from '@/actions/assets';
+import { removeCapGoalForAsset } from '@/actions/cap';
 import { todayLocalISO } from './today';
 import { PurchaseForm } from '@/components/day/PurchaseForm';
+import { confirmDanger } from '@/lib/confirm';
 
 export function NewPurchaseButton(props: {
   assetCategories: { id: number; name: string }[];
@@ -48,11 +51,13 @@ export function AssetActions({
   assetId,
   name,
   disposed,
+  hasCap = false,
   accounts,
 }: {
   assetId: number;
   name: string;
   disposed: boolean;
+  hasCap?: boolean;
   accounts: { id: number; name: string }[];
 }) {
   const [resaleOpen, setResaleOpen] = useState(false);
@@ -76,13 +81,31 @@ export function AssetActions({
       );
     });
 
+  const removeCap = () =>
+    confirmDanger({
+      title: 'Отключить КАП',
+      message: `Цель КАП для «${name}» будет удалена, статус станет «не применимо». Амортизация продолжится.`,
+      confirmLabel: 'Отключить',
+      onConfirm: () =>
+        startTransition(async () => {
+          const res = await removeCapGoalForAsset(assetId);
+          notifications.show(
+            res.ok ? { message: 'КАП отключён' } : { color: 'red', message: res.error },
+          );
+        }),
+    });
+
   const remove = () =>
-    startTransition(async () => {
-      if (!confirm(`Удалить покупку «${name}» вместе с графиком и КАП?`)) return;
-      const res = await deleteAsset(assetId);
-      notifications.show(
-        res.ok ? { message: 'Покупка удалена' } : { color: 'red', message: res.error },
-      );
+    confirmDanger({
+      title: 'Удалить покупку',
+      message: `Удалить покупку «${name}» вместе с графиком амортизации и КАП?`,
+      onConfirm: () =>
+        startTransition(async () => {
+          const res = await deleteAsset(assetId);
+          notifications.show(
+            res.ok ? { message: 'Покупка удалена' } : { color: 'red', message: res.error },
+          );
+        }),
     });
 
   return (
@@ -104,6 +127,11 @@ export function AssetActions({
           ) : (
             <Menu.Item leftSection={<IconPlayerStop size={15} />} onClick={dispose}>
               Завершить досрочно
+            </Menu.Item>
+          )}
+          {hasCap && (
+            <Menu.Item leftSection={<IconTargetOff size={15} />} onClick={removeCap}>
+              Отключить КАП
             </Menu.Item>
           )}
           <Menu.Divider />
@@ -176,10 +204,6 @@ function ResaleModal({
           value={accountId}
           onChange={setAccountId}
         />
-        <Text fz="xs" c="dimmed">
-          Доход от перепродажи — не доход: он уменьшит стоимость покупки задним числом, график
-          амортизации и цель КАП пересчитаются.
-        </Text>
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>
             Отмена

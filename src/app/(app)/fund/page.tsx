@@ -21,6 +21,7 @@ import { getFundOverview } from '@/queries/fund';
 import { getReference } from '@/queries/core';
 import { todayISO } from '@/lib/dates';
 import { fmtMoney } from '@/lib/money';
+import { WipeButton } from '@/components/WipeButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -205,6 +206,7 @@ export default async function FundPage() {
           </Stack>
         </Card>
       </SimpleGrid>
+      <WipeButton scope={{ scope: 'fund' }} label="все движения фонда КС и компенсации" />
     </Stack>
   );
 }

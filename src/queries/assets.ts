@@ -60,7 +60,7 @@ export async function getAssetsOverview(): Promise<AssetOverview[]> {
     LEFT JOIN LATERAL (
       SELECT sum(amount) AS s FROM cap_movements WHERE cap_goal_id = g.id
     ) gm ON true
-    ORDER BY ac.sort_order, a.purchase_date DESC
+    ORDER BY ac.sort_order, a.purchase_date ASC
   `);
   return (res.rows as any[]).map((r) => {
     const effectivePrice = toNum(r.effective_price);

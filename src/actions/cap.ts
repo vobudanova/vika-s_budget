@@ -268,3 +268,29 @@ export async function addCapRecalc(raw: z.input<typeof recalcInput>): Promise<Ac
     return fail(e);
   }
 }
+
+// ------------------------------------------------- отключение КАП у покупки
+
+/** «Не применимо»: амортизация нужна, КАП — нет. Цель удаляется, если на ней нет накоплений. */
+export async function removeCapGoalForAsset(assetId: number): Promise<ActionResult> {
+  try {
+    const [goal] = await db.select().from(capGoals).where(eq(capGoals.assetId, assetId)).limit(1);
+    if (!goal) return { ok: false, error: 'У покупки нет цели КАП' };
+    const movements = await db
+      .select()
+      .from(capMovements)
+      .where(eq(capMovements.capGoalId, goal.id));
+    const sum = round2(movements.reduce((s, m) => s + toNum(m.amount), 0));
+    if (Math.abs(sum) > 0.01) {
+      return {
+        ok: false,
+        error: `На цели накоплено ${sum.toLocaleString('ru-RU')} ₽ — сначала распределите через «Потратить» на странице КАП.`,
+      };
+    }
+    await db.delete(capGoals).where(eq(capGoals.id, goal.id));
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}

@@ -139,9 +139,6 @@ export function DayWorkspace({
               inflationRate={inflationRate}
             />
           )}
-          <Text fz="xs" c="dimmed">
-            Одна запись уменьшит «Наличные ₽» и попадёт в расходы дня. Снятие наличных — в блоке «Переводы».
-          </Text>
           {cashTxs.length > 0 && (
             <>
               <Divider label="Наличные за день" labelPosition="left" />

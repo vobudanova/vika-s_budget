@@ -1,10 +1,14 @@
 import { Card, Group, SimpleGrid, Stack, Text } from '@mantine/core';
+import { desc } from 'drizzle-orm';
+import { db, schema } from '@/db';
 import { getAccountBalances, splitBalances, type AccountBalance } from '@/queries/core';
 import { Money } from '@/components/Money';
 import { CardLabel } from '@/components/CardLabel';
-import { AnchorLink } from '@/components/links';
-import { fmtMoney } from '@/lib/money';
+import { AccountsBoard } from '@/components/accounts/AccountsBoard';
+import { InterestDeposits, Obligations } from '@/components/accounts/DepositsAndDebts';
+import { fmtMoney, toNum } from '@/lib/money';
 import { dateTitleFull, todayISO } from '@/lib/dates';
+import { WipeButton } from '@/components/WipeButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,8 +20,20 @@ const GROUPS: { title: string; types: string[] }[] = [
 ];
 
 export default async function BalancePage() {
-  const balances = await getAccountBalances();
+  const [balances, obligations, accountRows] = await Promise.all([
+    getAccountBalances(),
+    db.select().from(schema.obligations).orderBy(desc(schema.obligations.openedAt)),
+    db.select().from(schema.accounts),
+  ]);
   const { totalRub, totalUsd } = splitBalances(balances);
+
+  const interestIds = new Set(
+    accountRows.filter((a) => a.depositKind === 'interest' && a.isActive).map((a) => a.id),
+  );
+  const deposits = balances
+    .filter((b) => b.type === 'deposit' && interestIds.has(b.accountId))
+    .map((b) => ({ id: b.accountId, name: b.name, balance: b.balance }));
+  const checking = accountRows.find((a) => a.type === 'checking' && a.isActive) ?? null;
 
   return (
     <Stack gap="xl">
@@ -40,11 +56,39 @@ export default async function BalancePage() {
         ))}
       </SimpleGrid>
 
-      <Group justify="center">
-        <AnchorLink href="/accounts" fz="sm">
-          Сверка, вклады и долги →
-        </AnchorLink>
-      </Group>
+      <Card>
+        <AccountsBoard balances={balances} />
+      </Card>
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+        <Card>
+          <Stack gap="sm">
+            <CardLabel>Процентные вклады</CardLabel>
+            <InterestDeposits
+              deposits={deposits}
+              accounts={accountRows
+                .filter((a) => a.type === 'checking' && a.isActive)
+                .map((a) => ({ id: a.id, name: a.name }))}
+              defaultAccountId={checking?.id ?? null}
+            />
+          </Stack>
+        </Card>
+        <Card>
+          <Stack gap="sm">
+            <CardLabel>Долги и обязательства</CardLabel>
+            <Obligations
+              items={obligations.map((o) => ({
+                id: o.id,
+                title: o.title,
+                amount: toNum(o.amount),
+                status: o.status,
+                openedAt: o.openedAt,
+                note: o.note,
+              }))}
+            />
+          </Stack>
+        </Card>
+      </SimpleGrid>
+      <WipeButton scope={{ scope: 'balance' }} label="все снапшоты сверки и обязательства" />
     </Stack>
   );
 }

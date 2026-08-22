@@ -16,11 +16,13 @@ export type CapGoalOverview = {
   status: CapStatus;
   behindAmount: number;
   waitUntil: string | null; // конец месяца последнего взноса
-  monthsFlags: Record<string, { amount: number; sent: boolean }>; // ym -> взнос
+  monthsFlags: Record<string, { amount: number; sent: boolean }>; // ym -> взнос (за все годы)
   spentAt: string | null;
   assetId: number | null;
   assetCategoryName: string | null;
   firstOwnYm: string | null;
+  /** дата начала амортизации (день покупки актива) */
+  startDate: string | null;
 };
 
 export type CapOverview = {
@@ -40,7 +42,7 @@ export async function getCapOverview(): Promise<CapOverview> {
 
   const goalsRes = await db.execute(sql`
     SELECT g.id, g.name, g.target_amount, g.monthly_contribution, g.term_months, g.spent_at, g.asset_id,
-           ac.name AS asset_category_name
+           ac.name AS asset_category_name, a.purchase_date AS asset_purchase_date
     FROM cap_goals g
     LEFT JOIN assets a ON a.id = g.asset_id
     LEFT JOIN asset_categories ac ON ac.id = a.asset_category_id
@@ -71,7 +73,7 @@ export async function getCapOverview(): Promise<CapOverview> {
     const lastOwn = own.length ? own[own.length - 1] : null;
 
     const monthsFlags: Record<string, { amount: number; sent: boolean }> = {};
-    for (const m of own.filter((m) => m.date.startsWith(year))) {
+    for (const m of own) {
       const ym = ymOf(m.date);
       const prev = monthsFlags[ym] ?? { amount: 0, sent: false };
       monthsFlags[ym] = {
@@ -122,6 +124,7 @@ export async function getCapOverview(): Promise<CapOverview> {
       assetId: g.asset_id ? Number(g.asset_id) : null,
       assetCategoryName: g.asset_category_name,
       firstOwnYm,
+      startDate: g.asset_purchase_date ?? null,
     };
   });
 
