@@ -43,15 +43,15 @@ export function TxList({
 
   return (
     <Stack gap={0}>
-      {items.map((t) => (
-        <TxLine key={t.id} t={t} showDate={showDate} onEdit={() => setEditing(t)} />
+      {items.map((t, i) => (
+        <TxLine key={t.id} t={t} showDate={showDate} last={i === items.length - 1} onEdit={() => setEditing(t)} />
       ))}
       <EditModal t={editing} onClose={() => setEditing(null)} />
     </Stack>
   );
 }
 
-function TxLine({ t, showDate, onEdit }: { t: TxRow; showDate: boolean; onEdit: () => void }) {
+function TxLine({ t, showDate, last, onEdit }: { t: TxRow; showDate: boolean; last?: boolean; onEdit: () => void }) {
   const [pending, startTransition] = useTransition();
   const { title, detail } = txLabel(t);
   const sign = txSign(t);
@@ -72,7 +72,7 @@ function TxLine({ t, showDate, onEdit }: { t: TxRow; showDate: boolean; onEdit: 
       wrap="nowrap"
       py={7}
       gap="xs"
-      style={{ borderBottom: '1px solid var(--ink-line)', opacity: pending ? 0.4 : 1 }}
+      style={{ borderBottom: last ? 'none' : '1px solid var(--ink-line)', opacity: pending ? 0.4 : 1 }}
     >
       <Stack gap={0} style={{ minWidth: 0 }}>
         <Text fz="sm" fw={500} truncate>

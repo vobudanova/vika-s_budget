@@ -78,7 +78,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/month') ||
     pathname.startsWith('/year') ||
     pathname.startsWith('/cap') ||
-    pathname.startsWith('/fund');
+    pathname.startsWith('/fund') ||
+    pathname.startsWith('/income');
 
   const brand = (
     <Text

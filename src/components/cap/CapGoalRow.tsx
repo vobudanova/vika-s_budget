@@ -15,6 +15,7 @@ import {
   Tooltip,
   UnstyledButton,
 } from '@mantine/core';
+import { DatePickerInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { FormDrawer } from '@/components/FormDrawer';
 import { spendCapGoal, toggleCapContribution } from '@/actions/cap';
@@ -204,6 +205,7 @@ function SpendDrawer({
   ]);
   const [pending, startTransition] = useTransition();
   const [returnAccountId, setReturnAccountId] = useState<string | null>(null);
+  const [date, setDate] = useState<string>(todayLocalISO());
 
   const distributed = round2(
     targets.reduce((s, t) => s + (typeof t.amount === 'number' ? t.amount : Number(t.amount) || 0), 0),
@@ -214,7 +216,7 @@ function SpendDrawer({
     startTransition(async () => {
       const res = await spendCapGoal({
         goalId: goal.id,
-        date: todayLocalISO(),
+        date,
         mode,
         toAccountId: null,
         targets:
@@ -236,7 +238,7 @@ function SpendDrawer({
     startTransition(async () => {
       const res = await spendCapGoal({
         goalId: goal.id,
-        date: todayLocalISO(),
+        date,
         mode: 'return',
         toAccountId: returnAccountId ? Number(returnAccountId) : null,
       });
@@ -254,6 +256,14 @@ function SpendDrawer({
         <Text fz="sm">
           Накоплено <Money value={goal.contributed} fw={600} />
         </Text>
+        <DatePickerInput
+          label="Дата"
+          value={date}
+          onChange={(v) => setDate(v ? String(v).slice(0, 10) : todayLocalISO())}
+          valueFormat="D MMMM YYYY"
+          maw={220}
+          popoverProps={{ shadow: 'md' }}
+        />
         <Group gap="xs">
           <Button
             size="compact-sm"

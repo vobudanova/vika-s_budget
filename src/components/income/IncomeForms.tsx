@@ -13,10 +13,13 @@ export function IncomeForm({
   sources,
   accounts,
   defaultAccountId,
+  bare = false,
 }: {
   sources: { id: number; name: string }[];
   accounts: { id: number; name: string }[];
   defaultAccountId: number | null;
+  /** без карточки и заголовка — для шторки */
+  bare?: boolean;
 }) {
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<string | null>(
@@ -45,10 +48,9 @@ export function IncomeForm({
       }
     });
 
-  return (
-    <Card>
+  const body = (
       <Stack gap="sm">
-        <CardLabel>Новый доход</CardLabel>
+        {!bare && <CardLabel>Новый доход</CardLabel>}
         <Group grow>
           <Select
             label="Источник"
@@ -83,8 +85,8 @@ export function IncomeForm({
           </Button>
         </Group>
       </Stack>
-    </Card>
   );
+  return bare ? body : <Card>{body}</Card>;
 }
 
 export function CompensationForm({
@@ -92,14 +94,17 @@ export function CompensationForm({
   accounts,
   compensationSourceId,
   defaultAccountId,
+  bare = false,
 }: {
   categories: SelectGroup[];
   accounts: { id: number; name: string }[];
   compensationSourceId: number | null;
   defaultAccountId: number | null;
+  bare?: boolean;
 }) {
   const [spent, setSpent] = useState('');
   const [received, setReceived] = useState('');
+  const [date, setDate] = useState<string>(todayLocalISO());
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<string | null>(
     defaultAccountId ? String(defaultAccountId) : null,
@@ -114,7 +119,7 @@ export function CompensationForm({
         return;
       }
       const res = await createCompensation({
-        date: todayLocalISO(),
+        date,
         spentAmount: spent,
         receivedAmount: received,
         categoryId: Number(categoryId),
@@ -133,14 +138,9 @@ export function CompensationForm({
       }
     });
 
-  return (
-    <Card>
+  const body = (
       <Stack gap="sm">
-        <CardLabel>Компенсация (теневая трата)</CardLabel>
-        <Text fz="xs" c="dimmed">
-          Получено больше, чем потрачено: трата не попадает в расходы, остаток — в доход
-          «Компенсации».
-        </Text>
+        {!bare && <CardLabel>Компенсация (теневая трата)</CardLabel>}
         <Group grow>
           <TextInput
             label="Потрачено"
@@ -159,13 +159,20 @@ export function CompensationForm({
             inputMode="decimal"
           />
         </Group>
+        <Select
+          label="Категория траты"
+          data={categories}
+          value={categoryId}
+          onChange={setCategoryId}
+          searchable
+        />
         <Group grow>
-          <Select
-            label="Категория траты"
-            data={categories}
-            value={categoryId}
-            onChange={setCategoryId}
-            searchable
+          <DatePickerInput
+            label="Дата"
+            value={date}
+            onChange={(v) => setDate(v ? String(v).slice(0, 10) : todayLocalISO())}
+            valueFormat="D MMM YYYY"
+            popoverProps={{ shadow: 'md' }}
           />
           <Select
             label="Счёт"
@@ -186,6 +193,6 @@ export function CompensationForm({
           </Button>
         </Group>
       </Stack>
-    </Card>
   );
+  return bare ? body : <Card>{body}</Card>;
 }

@@ -68,8 +68,24 @@ export function FundSheet({ categories, year }: { categories: FundCategoryStatus
     return () => window.removeEventListener('resize', measure);
   }, []);
 
-  const groups = [...new Set(categories.map((c) => c.groupName))];
   const firstColWidth = 190;
+
+  // текущий год открывается с текущим месяцем по центру видимой зоны
+  const viewportRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const now = new Date();
+    if (String(now.getFullYear()) !== year) return;
+    const vp = viewportRef.current;
+    const th = vp?.querySelector<HTMLElement>(`th[data-col="${now.getMonth() + 1}"]`);
+    if (!vp || !th) return;
+    const stickyW = vp.querySelector('th')?.offsetWidth ?? firstColWidth;
+    const target = th.offsetLeft + th.offsetWidth / 2 - stickyW - (vp.clientWidth - stickyW) / 2;
+    vp.scrollLeft = Math.max(0, target);
+    setScrolledX(vp.scrollLeft > 8);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [year]);
+
+  const groups = [...new Set(categories.map((c) => c.groupName))];
 
   const firstCol: React.CSSProperties = {
     position: 'sticky',
@@ -100,6 +116,7 @@ export function FundSheet({ categories, year }: { categories: FundCategoryStatus
         <ScrollArea
           type="never"
           h={viewH ?? undefined}
+          viewportRef={viewportRef}
           onScrollPositionChange={({ x }) => setScrolledX(x > 8)}
         >
           <Table
@@ -123,8 +140,8 @@ export function FundSheet({ categories, year }: { categories: FundCategoryStatus
                 <HeadTh rowSpan={2} w={84}>
                   план/мес
                 </HeadTh>
-                {RU_MONTHS.map((mName) => (
-                  <HeadTh key={mName} colSpan={2} accent>
+                {RU_MONTHS.map((mName, i) => (
+                  <HeadTh key={mName} colSpan={2} accent dataCol={i + 1}>
                     {mName.slice(0, 3)}
                   </HeadTh>
                 ))}
@@ -199,6 +216,7 @@ function HeadTh({
   colSpan,
   accent,
   sub,
+  dataCol,
 }: {
   children?: React.ReactNode;
   w?: number;
@@ -206,12 +224,14 @@ function HeadTh({
   colSpan?: number;
   accent?: boolean;
   sub?: boolean;
+  dataCol?: number;
 }) {
   return (
     <Table.Th
       ta="center"
       rowSpan={rowSpan}
       colSpan={colSpan}
+      data-col={dataCol}
       style={{
         minWidth: w,
         border: 'none',
@@ -220,7 +240,7 @@ function HeadTh({
         whiteSpace: 'normal',
       }}
     >
-      <Text fz={accent ? 18 : 12} fw={600} c={accent ? 'ink.6' : 'dimmed'} lh={1.15} tt={sub ? undefined : undefined}>
+      <Text fz={accent ? 22 : 12} fw={600} c={accent ? 'ink.6' : 'dimmed'} lh={1.15} tt={sub ? undefined : undefined}>
         {children}
       </Text>
     </Table.Th>

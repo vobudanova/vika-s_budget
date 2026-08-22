@@ -192,68 +192,6 @@ export async function createPurchase(raw: z.input<typeof purchaseInput>): Promis
   }
 }
 
-// ----------------------------------------------------------- правка актива
-
-const updateAssetInput = z.object({
-  id: z.coerce.number().int().positive(),
-  name: z.string().trim().min(1).optional(),
-  date: dateSchema.optional(),
-  price: amountSchema.optional(),
-  termMonths: z.coerce.number().int().min(1).max(120).optional(),
-  note: z.string().trim().max(500).nullish(),
-});
-
-export async function updateAsset(raw: z.input<typeof updateAssetInput>): Promise<ActionResult> {
-  try {
-    const input = updateAssetInput.parse(raw);
-    await db.transaction(async (tx) => {
-      await tx
-        .update(assets)
-        .set({
-          ...(input.name ? { name: input.name } : {}),
-          ...(input.date ? { purchaseDate: input.date } : {}),
-          ...(input.price !== undefined ? { initialPrice: String(input.price) } : {}),
-          ...(input.termMonths !== undefined ? { termMonths: input.termMonths } : {}),
-          ...(input.note !== undefined ? { note: input.note || null } : {}),
-        })
-        .where(eq(assets.id, input.id));
-      const price = await regenerateAccruals(tx, input.id);
-
-      // цель КАП следует за параметрами (как в Excel), если ещё не потрачена
-      const [goal] = await tx.select().from(capGoals).where(eq(capGoals.assetId, input.id));
-      const [asset] = await tx.select().from(assets).where(eq(assets.id, input.id));
-      if (goal && !goal.spentAt && asset) {
-        const { target, monthly } = capTarget(price, asset.termMonths, Number(goal.inflationRate));
-        await tx
-          .update(capGoals)
-          .set({
-            targetAmount: String(target),
-            monthlyContribution: String(monthly),
-            termMonths: asset.termMonths,
-            name: asset.name,
-          })
-          .where(eq(capGoals.id, goal.id));
-      }
-
-      // синхронизируем сумму транзакции-покупки с ценой
-      if (input.price !== undefined || input.date || input.name) {
-        await tx
-          .update(transactions)
-          .set({
-            ...(input.price !== undefined ? { amount: String(input.price) } : {}),
-            ...(input.date ? { date: input.date } : {}),
-            ...(input.name ? { note: input.name } : {}),
-          })
-          .where(and(eq(transactions.assetId, input.id), eq(transactions.kind, 'purchase')));
-      }
-    });
-    revalidateAll();
-    return { ok: true };
-  } catch (e) {
-    return fail(e);
-  }
-}
-
 // ------------------------------------------------------------- перепродажа
 
 const resaleInput = z.object({
@@ -357,6 +295,100 @@ export async function deleteAsset(assetId: number): Promise<ActionResult> {
         .where(and(eq(transactions.assetId, assetId), eq(transactions.kind, 'purchase')));
       if (goal) await tx.delete(capGoals).where(eq(capGoals.id, goal.id));
       await tx.delete(assets).where(eq(assets.id, assetId)); // каскадом удалит график и корректировки
+    });
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+// ------------------------------------------------- редактирование покупки
+
+const editInput = z.object({
+  assetId: z.coerce.number().int().positive(),
+  name: z.string().trim().min(1, 'Укажите название'),
+  date: dateSchema,
+  price: amountSchema,
+  assetCategoryId: z.coerce.number().int().positive('Выберите категорию'),
+  termMonths: z.coerce.number().int().min(1).max(120),
+});
+
+/** Правка покупки: транзакция, график амортизации и цель КАП пересчитываются. */
+export async function editAsset(raw: z.input<typeof editInput>): Promise<ActionResult> {
+  try {
+    const input = editInput.parse(raw);
+    const [assetCat] = await db
+      .select()
+      .from(assetCategories)
+      .where(eq(assetCategories.id, input.assetCategoryId));
+    if (!assetCat) return { ok: false, error: 'Категория актива не найдена' };
+
+    // категория «Покупки → <категория актива>» для фактического метода
+    let [purchGroup] = await db
+      .select()
+      .from(categoryGroups)
+      .where(eq(categoryGroups.name, 'Покупки'));
+    if (!purchGroup) {
+      [purchGroup] = await db
+        .insert(categoryGroups)
+        .values({ name: 'Покупки', sortOrder: 60 })
+        .returning();
+    }
+    let [purchCategory] = await db
+      .select()
+      .from(categories)
+      .where(and(eq(categories.groupId, purchGroup.id), eq(categories.name, assetCat.name)));
+    if (!purchCategory) {
+      [purchCategory] = await db
+        .insert(categories)
+        .values({
+          groupId: purchGroup.id,
+          name: assetCat.name,
+          sortOrder: 99,
+          activeFrom: input.date,
+        })
+        .returning();
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(assets)
+        .set({
+          name: input.name,
+          purchaseDate: input.date,
+          initialPrice: String(input.price),
+          termMonths: input.termMonths,
+          assetCategoryId: input.assetCategoryId,
+        })
+        .where(eq(assets.id, input.assetId));
+
+      await tx
+        .update(transactions)
+        .set({
+          date: input.date,
+          amount: String(input.price),
+          note: input.name,
+          categoryId: purchCategory.id,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(transactions.assetId, input.assetId), eq(transactions.kind, 'purchase')));
+
+      // график начислений и цель КАП пересчитываются от новых параметров
+      const price = await regenerateAccruals(tx, input.assetId);
+      const [goal] = await tx.select().from(capGoals).where(eq(capGoals.assetId, input.assetId));
+      if (goal && !goal.spentAt) {
+        const { target, monthly } = capTarget(price, input.termMonths, Number(goal.inflationRate));
+        await tx
+          .update(capGoals)
+          .set({
+            name: input.name,
+            targetAmount: String(target),
+            monthlyContribution: String(monthly),
+            termMonths: input.termMonths,
+          })
+          .where(eq(capGoals.id, goal.id));
+      }
     });
     revalidateAll();
     return { ok: true };

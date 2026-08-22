@@ -12,6 +12,7 @@ import {
   TextInput,
   Tooltip,
 } from '@mantine/core';
+import { DatePickerInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { FormDrawer } from '@/components/FormDrawer';
 import { IconX } from '@tabler/icons-react';
@@ -66,7 +67,7 @@ export function FundToolbar({
         onClose={() => setReimburseOpen(false)}
         title="Компенсация из КС"
       >
-        <ReimburseForm date={todayLocalISO()} fundCategories={fundCategories} />
+        <ReimburseWithDate fundCategories={fundCategories} />
       </FormDrawer>
       <ExtraTopupModal
         opened={extraOpen}
@@ -98,11 +99,12 @@ function TopupModal({
   const [accountId, setAccountId] = useState<string | null>(
     defaultAccountId ? String(defaultAccountId) : null,
   );
+  const [date, setDate] = useState<string>(todayLocalISO());
   const [pending, startTransition] = useTransition();
 
   const submit = () =>
     startTransition(async () => {
-      const res = await topupFund({ date: todayLocalISO(), fromAccountId: Number(accountId) });
+      const res = await topupFund({ date, fromAccountId: Number(accountId) });
       if (!res.ok) {
         notifications.show({ color: 'red', message: res.error });
       } else {
@@ -114,6 +116,14 @@ function TopupModal({
   return (
     <FormDrawer opened={opened} onClose={onClose} title="Пополнение КС по плану">
       <Stack gap="sm">
+        <DatePickerInput
+          label="Дата"
+          value={date}
+          onChange={(v) => setDate(v ? String(v).slice(0, 10) : todayLocalISO())}
+          valueFormat="D MMMM YYYY"
+          maw={220}
+          popoverProps={{ shadow: 'md' }}
+        />
         <Table verticalSpacing={4} fz="sm">
           <Table.Tbody>
             <Table.Tr>
@@ -172,6 +182,7 @@ function ExtraTopupModal({
 }) {
   const [fundCategoryId, setFundCategoryId] = useState<string | null>(null);
   const [amount, setAmount] = useState('');
+  const [date, setDate] = useState<string>(todayLocalISO());
   const [accountId, setAccountId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -186,7 +197,7 @@ function ExtraTopupModal({
   const submit = () =>
     startTransition(async () => {
       const res = await extraTopupFund({
-        date: todayLocalISO(),
+        date,
         fundCategoryId: Number(fundCategoryId),
         amount,
         fromAccountId: accountId ? Number(accountId) : null,
@@ -203,6 +214,14 @@ function ExtraTopupModal({
   return (
     <FormDrawer opened={opened} onClose={onClose} title="Внеплановое пополнение статьи">
       <Stack gap="sm">
+        <DatePickerInput
+          label="Дата"
+          value={date}
+          onChange={(v) => setDate(v ? String(v).slice(0, 10) : todayLocalISO())}
+          valueFormat="D MMMM YYYY"
+          maw={220}
+          popoverProps={{ shadow: 'md' }}
+        />
         <Select label="Статья" data={data} value={fundCategoryId} onChange={setFundCategoryId} searchable />
         <TextInput
           label="Сумма"
@@ -293,6 +312,29 @@ export function FundMovementsList({ movements }: { movements: FundMovementRow[] 
           </Group>
         </Group>
       ))}
+    </Stack>
+  );
+}
+
+
+/** Компенсация со страницы КС: с выбором даты (на странице дня дата задана днём). */
+function ReimburseWithDate({
+  fundCategories,
+}: {
+  fundCategories: { id: number; name: string; groupName: string }[];
+}) {
+  const [date, setDate] = useState<string>(todayLocalISO());
+  return (
+    <Stack gap="sm">
+      <DatePickerInput
+        label="Дата"
+        value={date}
+        onChange={(v) => setDate(v ? String(v).slice(0, 10) : todayLocalISO())}
+        valueFormat="D MMMM YYYY"
+        maw={220}
+        popoverProps={{ shadow: 'md' }}
+      />
+      <ReimburseForm key={date} date={date} fundCategories={fundCategories} />
     </Stack>
   );
 }

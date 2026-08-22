@@ -1,26 +1,14 @@
-import {
-  Card,
-  ScrollArea,
-  SimpleGrid,
-  Stack,
-  Table,
-  TableTbody,
-  TableTd,
-  TableTh,
-  TableThead,
-  TableTr,
-  Text,
-} from '@mantine/core';
+import { Card, Stack } from '@mantine/core';
 import { sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { PageHeader } from '@/components/PageHeader';
-import { Money } from '@/components/Money';
 import { CardLabel } from '@/components/CardLabel';
 import { TxList } from '@/components/TxList';
-import { CompensationForm, IncomeForm } from '@/components/income/IncomeForms';
+import { IncomeSheet, type IncomeSheetGroup } from '@/components/income/IncomeSheet';
+import { IncomeToolbar } from '@/components/income/IncomeToolbar';
 import { getReference, getTransactions } from '@/queries/core';
 import { categorySelectData } from '@/components/tx-helpers';
-import { todayISO, RU_MONTHS } from '@/lib/dates';
+import { todayISO } from '@/lib/dates';
 import { fmtMoney, toNum } from '@/lib/money';
 import { WipeButton } from '@/components/WipeButton';
 
@@ -65,11 +53,18 @@ export default async function IncomePage() {
     cash_income: 'Наличные',
     compensation: 'Компенсации',
   };
-  const typeGroups = Object.keys(SOURCE_TYPE_LABELS)
+  const typeGroups: IncomeSheetGroup[] = Object.keys(SOURCE_TYPE_LABELS)
     .map((type) => ({
       type,
       label: SOURCE_TYPE_LABELS[type],
-      sources: sourcesWithData.filter((s) => s.type === type),
+      sources: sourcesWithData
+        .filter((s) => s.type === type)
+        .map((s) => ({
+          id: s.id,
+          name: s.name,
+          total: totals.get(s.id) ?? 0,
+          months: Array.from({ length: 13 }, (_, m) => (m ? (cells.get(`${s.id}:${m}`) ?? 0) : 0)),
+        })),
     }))
     .filter((g) => g.sources.length > 0);
 
@@ -80,112 +75,21 @@ export default async function IncomePage() {
     <Stack gap="md">
       <PageHeader
         title="Доходы"
-        subtitle={
-          <>
-            {year}: {fmtMoney(yearTotal)} — доходы попадают в балансы счетов автоматически
-          </>
+        subtitle={`${year}: ${fmtMoney(yearTotal)}`}
+        right={
+          <IncomeToolbar
+            sources={ref.incomeSources.map((s) => ({ id: s.id, name: s.name }))}
+            accounts={ref.accounts
+              .filter((a) => ['checking', 'cash'].includes(a.type))
+              .map((a) => ({ id: a.id, name: a.name }))}
+            defaultAccountId={checkingId}
+            categories={categorySelectData(ref.groups, ref.categories)}
+            compensationSourceId={compensationSource?.id ?? null}
+          />
         }
       />
-
-      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-        <IncomeForm
-          sources={ref.incomeSources.map((s) => ({ id: s.id, name: s.name }))}
-          accounts={ref.accounts
-            .filter((a) => ['checking', 'cash'].includes(a.type))
-            .map((a) => ({ id: a.id, name: a.name }))}
-          defaultAccountId={checkingId}
-        />
-        <CompensationForm
-          categories={categorySelectData(ref.groups, ref.categories)}
-          accounts={ref.accounts
-            .filter((a) => ['checking', 'cash'].includes(a.type))
-            .map((a) => ({ id: a.id, name: a.name }))}
-          compensationSourceId={compensationSource?.id ?? null}
-          defaultAccountId={checkingId}
-        />
-      </SimpleGrid>
-
       {sourcesWithData.length > 0 && (
-        <Card p={0}>
-          <Stack gap={0}>
-            <Text fw={600} px="md" py="sm">
-              По источникам · {year}
-            </Text>
-            <ScrollArea type="auto" offsetScrollbars>
-              <Table miw={980} fz={13} verticalSpacing={8} horizontalSpacing={12} withColumnBorders className="sheet">
-                <TableThead>
-                  <TableTr>
-                    <TableTh style={{ minWidth: 170 }}>Источник</TableTh>
-                    <TableTh ta="right">Σ год</TableTh>
-                    {RU_MONTHS.map((m) => (
-                      <TableTh key={m} ta="right">
-                        {m.slice(0, 3)}
-                      </TableTh>
-                    ))}
-                  </TableTr>
-                </TableThead>
-                <TableTbody>
-                  {typeGroups.map((g) => {
-                    const groupYear = g.sources.reduce((s, src) => s + (totals.get(src.id) ?? 0), 0);
-                    const groupMonth = (m: number) =>
-                      g.sources.reduce((s, src) => s + (cells.get(`${src.id}:${m}`) ?? 0), 0);
-                    return [
-                      <TableTr key={`g-${g.type}`}>
-                        <TableTd>
-                          <Text fw={700} fz={13}>
-                            {g.label}
-                          </Text>
-                        </TableTd>
-                        <TableTd ta="right" className="money" fw={700}>
-                          {fmtMoney(groupYear)}
-                        </TableTd>
-                        {Array.from({ length: 12 }, (_, i) => (
-                          <TableTd key={i} ta="right" className="money" fw={700}>
-                            {groupMonth(i + 1) ? fmtMoney(groupMonth(i + 1)) : ''}
-                          </TableTd>
-                        ))}
-                      </TableTr>,
-                      ...g.sources.map((s) => (
-                        <TableTr key={s.id}>
-                          <TableTd>
-                            <Text fz={13} pl={16} c="dark.4">
-                              {s.name}
-                            </Text>
-                          </TableTd>
-                          <TableTd ta="right" className="money" fw={600}>
-                            {fmtMoney(totals.get(s.id) ?? 0)}
-                          </TableTd>
-                          {Array.from({ length: 12 }, (_, i) => (
-                            <TableTd key={i} ta="right" className="money">
-                              {cells.get(`${s.id}:${i + 1}`)
-                                ? fmtMoney(cells.get(`${s.id}:${i + 1}`)!)
-                                : ''}
-                            </TableTd>
-                          ))}
-                        </TableTr>
-                      )),
-                    ];
-                  })}
-                  <TableTr style={{ borderTop: '2px solid var(--ink-line)' }}>
-                    <TableTd>
-                      <Text fw={700} fz="xs">
-                        Итого
-                      </Text>
-                    </TableTd>
-                    <TableTd ta="right" className="money" fw={700}>
-                      {fmtMoney(yearTotal)}
-                    </TableTd>
-                    {monthTotals.map((t, i) => (
-                      <TableTd key={i} ta="right" className="money">
-                        {t ? fmtMoney(t) : ''}
-                      </TableTd>
-                    ))}
-                  </TableTr>
-                </TableTbody>
-              </Table>
-            </ScrollArea>
-          </Stack>
-        </Card>
+        <IncomeSheet groups={typeGroups} monthTotals={monthTotals} yearTotal={yearTotal} year={year} />
       )}
 
       <Card>

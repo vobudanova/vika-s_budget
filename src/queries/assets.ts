@@ -9,6 +9,7 @@ export type AssetOverview = {
   categoryName: string;
   purchaseDate: string;
   initialPrice: number;
+  assetCategoryId: number;
   effectivePrice: number;
   termMonths: number;
   disposedAt: string | null;
@@ -30,7 +31,7 @@ export async function getAssetsOverview(): Promise<AssetOverview[]> {
   const yearStart = `${today.slice(0, 4)}-01-01`;
   const res = await db.execute(sql`
     SELECT
-      a.id, a.name, a.purchase_date, a.initial_price, a.term_months, a.disposed_at, a.note,
+      a.id, a.name, a.purchase_date, a.initial_price, a.asset_category_id, a.term_months, a.disposed_at, a.note,
       ac.name AS category_name,
       a.initial_price + COALESCE(adj.s, 0) AS effective_price,
       COALESCE(st.prev_years, 0) AS prev_years,
@@ -70,6 +71,7 @@ export async function getAssetsOverview(): Promise<AssetOverview[]> {
       categoryName: r.category_name,
       purchaseDate: r.purchase_date,
       initialPrice: toNum(r.initial_price),
+      assetCategoryId: Number(r.asset_category_id),
       effectivePrice,
       termMonths: r.term_months,
       disposedAt: r.disposed_at,

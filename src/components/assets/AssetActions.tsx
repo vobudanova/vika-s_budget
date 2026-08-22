@@ -6,15 +6,18 @@ import {
   Button,
   Group,
   Menu,
+  NumberInput,
   Select,
   Stack,
   Text,
   TextInput,
 } from '@mantine/core';
+import { DatePickerInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { FormDrawer } from '@/components/FormDrawer';
 import {
   IconDotsVertical,
+  IconPencil,
   IconTag,
   IconPlayerStop,
   IconArrowBackUp,
@@ -22,7 +25,7 @@ import {
   IconTrash,
   IconPlus,
 } from '@tabler/icons-react';
-import { deleteAsset, disposeAsset, resaleAsset, undisposeAsset } from '@/actions/assets';
+import { deleteAsset, disposeAsset, editAsset, resaleAsset, undisposeAsset } from '@/actions/assets';
 import { removeCapGoalForAsset } from '@/actions/cap';
 import { todayLocalISO } from './today';
 import { PurchaseForm } from '@/components/day/PurchaseForm';
@@ -35,17 +38,36 @@ export function NewPurchaseButton(props: {
   inflationRate: number;
 }) {
   const [opened, setOpened] = useState(false);
+  const [date, setDate] = useState<string>(todayLocalISO());
   return (
     <>
       <Button leftSection={<IconPlus size={16} />} onClick={() => setOpened(true)}>
         Новая покупка
       </Button>
       <FormDrawer opened={opened} onClose={() => setOpened(false)} title="Новая покупка" desktopSize="lg">
-        <PurchaseForm date={todayLocalISO()} {...props} />
+        <Stack gap="sm">
+          <DatePickerInput
+            label="Дата покупки"
+            value={date}
+            onChange={(v) => setDate(v ? String(v).slice(0, 10) : todayLocalISO())}
+            valueFormat="D MMMM YYYY"
+            maw={220}
+            popoverProps={{ shadow: 'md' }}
+          />
+          <PurchaseForm key={date} date={date} {...props} />
+        </Stack>
       </FormDrawer>
     </>
   );
 }
+
+export type AssetEditInit = {
+  name: string;
+  date: string;
+  price: number;
+  termMonths: number;
+  assetCategoryId: number;
+};
 
 export function AssetActions({
   assetId,
@@ -53,24 +75,33 @@ export function AssetActions({
   disposed,
   hasCap = false,
   accounts,
+  editInit,
+  assetCategories = [],
 }: {
   assetId: number;
   name: string;
   disposed: boolean;
   hasCap?: boolean;
   accounts: { id: number; name: string }[];
+  editInit?: AssetEditInit;
+  assetCategories?: { id: number; name: string }[];
 }) {
   const [resaleOpen, setResaleOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  const [disposeOpen, setDisposeOpen] = useState(false);
+  const [disposeDate, setDisposeDate] = useState<string>(todayLocalISO());
 
   const dispose = () =>
     startTransition(async () => {
-      const res = await disposeAsset({ assetId, date: todayLocalISO() });
+      const res = await disposeAsset({ assetId, date: disposeDate });
       notifications.show(
         res.ok
-          ? { message: `«${name}» — амортизация остановлена сегодняшним днём` }
+          ? { message: `«${name}» — амортизация остановлена` }
           : { color: 'red', message: res.error },
       );
+      if (res.ok) setDisposeOpen(false);
     });
 
   const undispose = () =>
@@ -117,6 +148,11 @@ export function AssetActions({
           </ActionIcon>
         </Menu.Target>
         <Menu.Dropdown>
+          {editInit && (
+            <Menu.Item leftSection={<IconPencil size={15} />} onClick={() => setEditOpen(true)}>
+              Редактировать…
+            </Menu.Item>
+          )}
           <Menu.Item leftSection={<IconTag size={15} />} onClick={() => setResaleOpen(true)}>
             Перепродажа…
           </Menu.Item>
@@ -125,8 +161,8 @@ export function AssetActions({
               Возобновить амортизацию
             </Menu.Item>
           ) : (
-            <Menu.Item leftSection={<IconPlayerStop size={15} />} onClick={dispose}>
-              Завершить досрочно
+            <Menu.Item leftSection={<IconPlayerStop size={15} />} onClick={() => setDisposeOpen(true)}>
+              Завершить досрочно…
             </Menu.Item>
           )}
           {hasCap && (
@@ -147,6 +183,39 @@ export function AssetActions({
         onClose={() => setResaleOpen(false)}
         accounts={accounts}
       />
+      {editInit && (
+        <EditAssetDrawer
+          assetId={assetId}
+          init={editInit}
+          assetCategories={assetCategories}
+          opened={editOpen}
+          onClose={() => setEditOpen(false)}
+        />
+      )}
+      <FormDrawer
+        opened={disposeOpen}
+        onClose={() => setDisposeOpen(false)}
+        title={`Завершить досрочно: ${name}`}
+        desktopSize="sm"
+      >
+        <Stack gap="sm">
+          <DatePickerInput
+            label="Дата завершения"
+            value={disposeDate}
+            onChange={(v) => setDisposeDate(v ? String(v).slice(0, 10) : todayLocalISO())}
+            valueFormat="D MMMM YYYY"
+            popoverProps={{ shadow: 'md' }}
+          />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setDisposeOpen(false)}>
+              Отмена
+            </Button>
+            <Button onClick={dispose} loading={pending}>
+              Завершить
+            </Button>
+          </Group>
+        </Stack>
+      </FormDrawer>
     </>
   );
 }
@@ -165,6 +234,7 @@ function ResaleModal({
   accounts: { id: number; name: string }[];
 }) {
   const [amount, setAmount] = useState('');
+  const [date, setDate] = useState<string>(todayLocalISO());
   const [accountId, setAccountId] = useState<string | null>(
     accounts[0] ? String(accounts[0].id) : null,
   );
@@ -174,7 +244,7 @@ function ResaleModal({
     startTransition(async () => {
       const res = await resaleAsset({
         assetId,
-        date: todayLocalISO(),
+        date,
         amount,
         counterAccountId: Number(accountId),
       });
@@ -190,6 +260,13 @@ function ResaleModal({
   return (
     <FormDrawer opened={opened} onClose={onClose} title={`Перепродажа: ${name}`}>
       <Stack gap="sm">
+        <DatePickerInput
+          label="Дата продажи"
+          value={date}
+          onChange={(v) => setDate(v ? String(v).slice(0, 10) : todayLocalISO())}
+          valueFormat="D MMMM YYYY"
+          popoverProps={{ shadow: 'md' }}
+        />
         <TextInput
           label="Сумма продажи"
           placeholder="2 208"
@@ -210,6 +287,85 @@ function ResaleModal({
           </Button>
           <Button onClick={submit} loading={pending} disabled={!amount}>
             Записать
+          </Button>
+        </Group>
+      </Stack>
+    </FormDrawer>
+  );
+}
+
+
+function EditAssetDrawer({
+  assetId,
+  init,
+  assetCategories,
+  opened,
+  onClose,
+}: {
+  assetId: number;
+  init: AssetEditInit;
+  assetCategories: { id: number; name: string }[];
+  opened: boolean;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(init.name);
+  const [date, setDate] = useState<string>(init.date);
+  const [price, setPrice] = useState<string>(String(init.price));
+  const [term, setTerm] = useState<number | string>(init.termMonths);
+  const [categoryId, setCategoryId] = useState<string | null>(String(init.assetCategoryId));
+  const [pending, startTransition] = useTransition();
+
+  const submit = () =>
+    startTransition(async () => {
+      const res = await editAsset({
+        assetId,
+        name,
+        date,
+        price,
+        termMonths: Number(term),
+        assetCategoryId: Number(categoryId),
+      });
+      if (!res.ok) {
+        notifications.show({ color: 'red', message: res.error });
+      } else {
+        notifications.show({ message: 'Покупка обновлена: график и КАП пересчитаны' });
+        onClose();
+      }
+    });
+
+  return (
+    <FormDrawer opened={opened} onClose={onClose} title={`Редактировать: ${init.name}`}>
+      <Stack gap="sm">
+        <TextInput label="Наименование" value={name} onChange={(e) => setName(e.currentTarget.value)} />
+        <Group gap="xs" grow>
+          <TextInput
+            label="Цена"
+            value={price}
+            onChange={(e) => setPrice(e.currentTarget.value)}
+            className="money"
+            inputMode="decimal"
+          />
+          <NumberInput label="Срок, мес" value={term} onChange={setTerm} min={1} max={120} />
+        </Group>
+        <DatePickerInput
+          label="Дата покупки"
+          value={date}
+          onChange={(v) => setDate(v ? String(v).slice(0, 10) : init.date)}
+          valueFormat="D MMMM YYYY"
+          popoverProps={{ shadow: 'md' }}
+        />
+        <Select
+          label="Категория актива"
+          data={assetCategories.map((c) => ({ value: String(c.id), label: c.name }))}
+          value={categoryId}
+          onChange={setCategoryId}
+        />
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>
+            Отмена
+          </Button>
+          <Button onClick={submit} loading={pending} disabled={!name || !price || !categoryId}>
+            Сохранить
           </Button>
         </Group>
       </Stack>

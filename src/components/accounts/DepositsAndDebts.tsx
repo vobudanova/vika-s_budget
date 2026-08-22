@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
 } from '@mantine/core';
+import { DatePickerInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { FormDrawer } from '@/components/FormDrawer';
 import { closeInterestDeposit, closeObligation, createObligation, openInterestDeposit } from '@/actions/misc';
@@ -28,13 +29,14 @@ export function InterestDeposits({
   const [openModal, setOpenModal] = useState(false);
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
+  const [date, setDate] = useState<string>(todayLocalISO());
   const [fromId, setFromId] = useState<string | null>(defaultAccountId ? String(defaultAccountId) : null);
   const [pending, startTransition] = useTransition();
 
   const open = () =>
     startTransition(async () => {
       const res = await openInterestDeposit({
-        date: todayLocalISO(),
+        date,
         amount,
         name,
         fromAccountId: Number(fromId),
@@ -97,13 +99,14 @@ export function InterestDeposits({
 function DepositRow({ d }: { d: { id: number; name: string; balance: number } }) {
   const [closing, setClosing] = useState(false);
   const [interest, setInterest] = useState('');
+  const [date, setDate] = useState<string>(todayLocalISO());
   const [pending, startTransition] = useTransition();
 
   const close = () =>
     startTransition(async () => {
       const res = await closeInterestDeposit({
         depositAccountId: d.id,
-        date: todayLocalISO(),
+        date,
         interest: interest || undefined,
       });
       if (!res.ok) {
@@ -121,6 +124,14 @@ function DepositRow({ d }: { d: { id: number; name: string; balance: number } })
         <Money value={d.balance} fz="sm" />
         {closing ? (
           <>
+            <DatePickerInput
+              size="xs"
+              w={118}
+              value={date}
+              onChange={(v) => setDate(v ? String(v).slice(0, 10) : todayLocalISO())}
+              valueFormat="D MMM YY"
+              popoverProps={{ shadow: 'md' }}
+            />
             <TextInput
               size="xs"
               w={110}
@@ -158,6 +169,7 @@ export function Obligations({
   const [modal, setModal] = useState(false);
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
+  const [openedAt, setOpenedAt] = useState<string>(todayLocalISO());
   const [note, setNote] = useState('');
   const [pending, startTransition] = useTransition();
 
@@ -166,7 +178,7 @@ export function Obligations({
       const res = await createObligation({
         title,
         amount,
-        openedAt: todayLocalISO(),
+        openedAt,
         note: note || undefined,
       });
       if (!res.ok) {
@@ -180,10 +192,14 @@ export function Obligations({
       }
     });
 
+  const [closingId, setClosingId] = useState<number | null>(null);
+  const [closeDate, setCloseDate] = useState<string>(todayLocalISO());
+
   const close = (id: number) =>
     startTransition(async () => {
-      const res = await closeObligation(id, todayLocalISO());
+      const res = await closeObligation(id, closeDate);
       if (!res.ok) notifications.show({ color: 'red', message: res.error });
+      else setClosingId(null);
     });
 
   const open = items.filter((o) => o.status !== 'closed');
@@ -209,9 +225,25 @@ export function Obligations({
           </Stack>
           <Group gap="xs" wrap="nowrap">
             <Money value={o.amount} fz="sm" />
-            <Button size="compact-xs" variant="subtle" onClick={() => close(o.id)} loading={pending}>
-              Закрыть
-            </Button>
+            {closingId === o.id ? (
+              <>
+                <DatePickerInput
+                  size="xs"
+                  w={118}
+                  value={closeDate}
+                  onChange={(v) => setCloseDate(v ? String(v).slice(0, 10) : todayLocalISO())}
+                  valueFormat="D MMM YY"
+                  popoverProps={{ shadow: 'md' }}
+                />
+                <Button size="compact-xs" onClick={() => close(o.id)} loading={pending}>
+                  ОК
+                </Button>
+              </>
+            ) : (
+              <Button size="compact-xs" variant="subtle" onClick={() => setClosingId(o.id)}>
+                Закрыть…
+              </Button>
+            )}
           </Group>
         </Group>
       ))}
@@ -239,6 +271,13 @@ export function Obligations({
             onChange={(e) => setAmount(e.currentTarget.value)}
             className="money"
             inputMode="decimal"
+          />
+          <DatePickerInput
+            label="Дата возникновения"
+            value={openedAt}
+            onChange={(v) => setOpenedAt(v ? String(v).slice(0, 10) : todayLocalISO())}
+            valueFormat="D MMMM YYYY"
+            popoverProps={{ shadow: 'md' }}
           />
           <TextInput label="Заметка" value={note} onChange={(e) => setNote(e.currentTarget.value)} />
           <Group justify="flex-end">

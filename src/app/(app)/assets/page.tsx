@@ -40,6 +40,7 @@ export default async function AssetsPage() {
     .filter((a) => ['checking', 'credit_card', 'cash'].includes(a.type))
     .map((a) => ({ id: a.id, name: a.name }));
   const monthlyTotal = active.reduce((s, a) => s + a.monthlyAmount, 0);
+  const assetCats = ref.assetCategories.map((c) => ({ id: c.id, name: c.name }));
 
   return (
     <Stack gap="md">
@@ -76,7 +77,7 @@ export default async function AssetsPage() {
               c="dimmed"
             />
           </Group>
-          <AssetTable rows={active.filter((a) => a.categoryName === cat)} accounts={moneyAccounts} />
+          <AssetTable rows={active.filter((a) => a.categoryName === cat)} accounts={moneyAccounts} assetCategories={assetCats} />
         </Card>
       ))}
 
@@ -90,7 +91,7 @@ export default async function AssetsPage() {
               {finished.length}
             </Badge>
           </Group>
-          <AssetTable rows={finished} accounts={moneyAccounts} finished />
+          <AssetTable rows={finished} accounts={moneyAccounts} assetCategories={assetCats} finished />
         </Card>
       )}
       <WipeButton scope={{ scope: 'assets' }} label="все покупки, графики амортизации и их КАП" />
@@ -101,10 +102,12 @@ export default async function AssetsPage() {
 function AssetTable({
   rows,
   accounts,
+  assetCategories,
   finished = false,
 }: {
   rows: AssetOverview[];
   accounts: { id: number; name: string }[];
+  assetCategories: { id: number; name: string }[];
   finished?: boolean;
 }) {
   return (
@@ -170,6 +173,14 @@ function AssetTable({
                   disposed={!!a.disposedAt}
                   hasCap={!!a.goalId && !a.goalSpentAt}
                   accounts={accounts}
+                  assetCategories={assetCategories}
+                  editInit={{
+                    name: a.name,
+                    date: a.purchaseDate,
+                    price: a.initialPrice,
+                    termMonths: a.termMonths,
+                    assetCategoryId: a.assetCategoryId,
+                  }}
                 />
               </TableTd>
             </TableTr>

@@ -109,6 +109,20 @@ export async function getCellBreakdown(
             AND ${row ? sql`fm.fund_category_id = ${Number(row)}` : sql`true`}
           ORDER BY fm.date, fm.id`),
       );
+    } else if (section === 'income') {
+      // поступления: по источнику ('src:ID'), по категории ('type:T') или все
+      const cond = !row
+        ? sql`true`
+        : row.startsWith('src:')
+          ? sql`iso.id = ${Number(row.slice(4))}`
+          : sql`iso.type = ${row.slice(5)}`;
+      push(
+        await db.execute(sql`
+          SELECT t.date, iso.name AS label, t.note AS sub, t.amount AS s
+          FROM transactions t JOIN income_sources iso ON iso.id = t.income_source_id
+          WHERE t.kind = 'income' AND t.date BETWEEN ${from} AND ${to} AND ${cond}
+          ORDER BY t.date, t.id`),
+      );
     } else if (section === 'savings') {
       push(
         await db.execute(sql`
