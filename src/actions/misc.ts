@@ -316,3 +316,44 @@ export async function closeInterestDeposit(
     return fail(e);
   }
 }
+
+// ----------------------------------------------- история сверок счёта
+
+export type SnapshotRow = { id: number; onDate: string; balance: number; note: string | null };
+
+export async function listSnapshots(accountId: number): Promise<SnapshotRow[]> {
+  const rows = await db
+    .select()
+    .from(accountSnapshots)
+    .where(eq(accountSnapshots.accountId, Number(accountId)))
+    .orderBy(sql`${accountSnapshots.onDate} DESC`);
+  return rows.map((r) => ({
+    id: r.id,
+    onDate: r.onDate,
+    balance: Number(r.balance),
+    note: r.note,
+  }));
+}
+
+const snapshotEdit = z.object({
+  id: z.coerce.number().int().positive(),
+  onDate: dateSchema,
+  balance: z.coerce.number().finite(),
+});
+
+export async function updateSnapshot(raw: z.input<typeof snapshotEdit>): Promise<ActionResult> {
+  try {
+    const input = snapshotEdit.parse(raw);
+    await db
+      .update(accountSnapshots)
+      .set({ onDate: input.onDate, balance: String(round2(input.balance)) })
+      .where(eq(accountSnapshots.id, input.id));
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('account_snapshots_uq')) {
+      return { ok: false, error: 'На эту дату уже есть сверка — отредактируйте или удалите её' };
+    }
+    return fail(e);
+  }
+}

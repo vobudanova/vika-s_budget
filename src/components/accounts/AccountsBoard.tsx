@@ -13,6 +13,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { saveSnapshot } from '@/actions/misc';
 import { BalanceBreakdownButton } from '@/components/balance/BalanceBreakdown';
+import { SnapshotHistoryButton } from '@/components/balance/SnapshotHistory';
 import type { AccountBalance } from '@/queries/core';
 import { Money } from '@/components/Money';
 import { fmtMoney, parseAmountExpr, round2 } from '@/lib/money';
@@ -69,9 +70,11 @@ function AccountRow({ b }: { b: AccountBalance }) {
         <Text fz="sm" fw={500}>
           {b.name}
         </Text>
-        <Text fz="xs" c="dimmed">
-          {b.lastSnapshotDate ? `сверка ${dateShort(b.lastSnapshotDate)}` : 'сверок не было'}
-        </Text>
+        <SnapshotHistoryButton
+          accountId={b.accountId}
+          name={b.name}
+          lastDate={b.lastSnapshotDate}
+        />
       </Table.Td>
       <Table.Td ta="right">
         <Group gap={2} wrap="nowrap" justify="flex-end">
