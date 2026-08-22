@@ -6,13 +6,13 @@ import {
   Button,
   Group,
   Menu,
-  Modal,
   Select,
   Stack,
   Text,
   TextInput,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { FormDrawer } from '@/components/FormDrawer';
 import {
   IconDotsVertical,
   IconTag,
@@ -37,9 +37,9 @@ export function NewPurchaseButton(props: {
       <Button leftSection={<IconPlus size={16} />} onClick={() => setOpened(true)}>
         Новая покупка
       </Button>
-      <Modal opened={opened} onClose={() => setOpened(false)} title="Новая покупка" centered size="lg">
+      <FormDrawer opened={opened} onClose={() => setOpened(false)} title="Новая покупка" desktopSize="lg">
         <PurchaseForm date={todayLocalISO()} {...props} />
-      </Modal>
+      </FormDrawer>
     </>
   );
 }
@@ -160,7 +160,7 @@ function ResaleModal({
     });
 
   return (
-    <Modal opened={opened} onClose={onClose} title={`Перепродажа: ${name}`} centered>
+    <FormDrawer opened={opened} onClose={onClose} title={`Перепродажа: ${name}`}>
       <Stack gap="sm">
         <TextInput
           label="Сумма продажи"
@@ -189,6 +189,6 @@ function ResaleModal({
           </Button>
         </Group>
       </Stack>
-    </Modal>
+    </FormDrawer>
   );
 }

@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ActionIcon, Divider, Drawer, Stack, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, Divider, Stack, Text, Tooltip } from '@mantine/core';
+import { FormDrawer } from './FormDrawer';
 import { IconPlus } from '@tabler/icons-react';
 import { QuickExpense } from './QuickExpense';
 import { TxList } from './TxList';
@@ -40,18 +41,7 @@ export function NewDayDrawer({
           <IconPlus size={24} stroke={2} />
         </ActionIcon>
       </Tooltip>
-      <Drawer
-        opened={opened}
-        onClose={() => setOpened(false)}
-        position="right"
-        size="md"
-        title={
-          <Text fw={600} fz="md">
-            Новый день · {dateTitle}
-          </Text>
-        }
-        padding="lg"
-      >
+      <FormDrawer opened={opened} onClose={() => setOpened(false)} title={`Новый день · ${dateTitle}`}>
         <Stack gap="md">
           <QuickExpense
             date={date}
@@ -68,7 +58,7 @@ export function NewDayDrawer({
             </Text>
           </Link>
         </Stack>
-      </Drawer>
+      </FormDrawer>
     </>
   );
 }

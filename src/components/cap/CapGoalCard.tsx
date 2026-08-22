@@ -6,7 +6,7 @@ import {
   Button,
   Card,
   Group,
-  Modal,
+  Loader,
   NumberInput,
   Progress,
   Select,
@@ -16,6 +16,7 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { FormDrawer } from '@/components/FormDrawer';
 import { spendCapGoal, toggleCapContribution } from '@/actions/cap';
 import type { CapGoalOverview } from '@/queries/cap';
 import { Money } from '@/components/Money';
@@ -50,14 +51,18 @@ export function CapGoalCard({
 }) {
   const [pending, startTransition] = useTransition();
   const [spendOpen, setSpendOpen] = useState(false);
+  const [busyYm, setBusyYm] = useState<string | null>(null);
   const meta = STATUS_META[goal.status];
   const pct = goal.target > 0 ? Math.min(100, (goal.contributed / goal.target) * 100) : 0;
 
-  const toggle = (ym: string) =>
+  const toggle = (ym: string) => {
+    setBusyYm(ym);
     startTransition(async () => {
       const res = await toggleCapContribution({ goalId: goal.id, ym });
       if (!res.ok) notifications.show({ color: 'red', message: res.error });
+      setBusyYm(null);
     });
+  };
 
   return (
     <Card>
@@ -126,7 +131,7 @@ export function CapGoalCard({
                       cursor: isFuture ? 'default' : 'pointer',
                     }}
                   >
-                    {label}
+                    {busyYm === ym ? <Loader size={12} color={flag?.sent ? 'white' : 'ink'} /> : label}
                   </UnstyledButton>
                 </Tooltip>
               );
@@ -233,7 +238,7 @@ function SpendModal({
   const [returnAccountId, setReturnAccountId] = useState<string | null>(null);
 
   return (
-    <Modal opened={opened} onClose={onClose} title={`Потратить КАП: ${goal.name}`} centered size="md">
+    <FormDrawer opened={opened} onClose={onClose} title={`Потратить КАП: ${goal.name}`}>
       <Stack gap="sm">
         <Text fz="sm">
           Накоплено <Money value={goal.contributed} fw={600} />
@@ -329,6 +334,6 @@ function SpendModal({
           </>
         )}
       </Stack>
-    </Modal>
+    </FormDrawer>
   );
 }

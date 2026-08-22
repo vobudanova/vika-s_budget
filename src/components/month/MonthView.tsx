@@ -51,7 +51,7 @@ export function MonthView({
             { value: 'matrix', label: 'Матрица' },
             { value: 'list', label: 'Список' },
           ]}
-          size="xs"
+          size="sm"
         />
       </Group>
 

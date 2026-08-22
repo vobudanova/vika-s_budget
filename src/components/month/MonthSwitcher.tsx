@@ -10,18 +10,29 @@ export function MonthSwitcher({ ym, currentYm, base = '/month' }: { ym: string; 
   const router = useRouter();
   return (
     <Group gap="xs" wrap="nowrap">
-      <ActionIcon variant="default" onClick={() => router.push(`${base}/${ymAdd(ym, -1)}`)} aria-label="Предыдущий месяц">
-        <IconChevronLeft size={16} />
+      <ActionIcon
+        variant="default"
+        size={42}
+        onClick={() => router.push(`${base}/${ymAdd(ym, -1)}`)}
+        aria-label="Предыдущий месяц"
+      >
+        <IconChevronLeft size={18} />
       </ActionIcon>
       <MonthPickerInput
         value={`${ym}-01`}
         onChange={(v) => v && router.push(`${base}/${String(v).slice(0, 7)}`)}
         valueFormat="MMMM YYYY"
-        w={170}
+        size="md"
+        w={182}
         popoverProps={{ shadow: 'md' }}
       />
-      <ActionIcon variant="default" onClick={() => router.push(`${base}/${ymAdd(ym, 1)}`)} aria-label="Следующий месяц">
-        <IconChevronRight size={16} />
+      <ActionIcon
+        variant="default"
+        size={42}
+        onClick={() => router.push(`${base}/${ymAdd(ym, 1)}`)}
+        aria-label="Следующий месяц"
+      >
+        <IconChevronRight size={18} />
       </ActionIcon>
       {ym !== currentYm && (
         <Button variant="subtle" size="compact-sm" onClick={() => router.push(`${base}/${currentYm}`)}>

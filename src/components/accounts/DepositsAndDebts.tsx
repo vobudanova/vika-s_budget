@@ -4,13 +4,13 @@ import { useState, useTransition } from 'react';
 import {
   Button,
   Group,
-  Modal,
   Select,
   Stack,
   Text,
   TextInput,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { FormDrawer } from '@/components/FormDrawer';
 import { closeInterestDeposit, closeObligation, createObligation, openInterestDeposit } from '@/actions/misc';
 import { Money } from '@/components/Money';
 import { dateShort } from '@/lib/dates';
@@ -64,7 +64,7 @@ export function InterestDeposits({
           Открыть вклад
         </Button>
       </Group>
-      <Modal opened={openModal} onClose={() => setOpenModal(false)} title="Процентный вклад" centered>
+      <FormDrawer opened={openModal} onClose={() => setOpenModal(false)} title="Процентный вклад">
         <Stack gap="sm">
           <TextInput label="Название" placeholder="Вклад Т-Банк · сентябрь" value={name} onChange={(e) => setName(e.currentTarget.value)} />
           <TextInput
@@ -89,7 +89,7 @@ export function InterestDeposits({
             </Button>
           </Group>
         </Stack>
-      </Modal>
+      </FormDrawer>
     </Stack>
   );
 }
@@ -225,7 +225,7 @@ export function Obligations({
           Добавить обязательство
         </Button>
       </Group>
-      <Modal opened={modal} onClose={() => setModal(false)} title="Обязательство" centered>
+      <FormDrawer opened={modal} onClose={() => setModal(false)} title="Обязательство">
         <Stack gap="sm">
           <TextInput
             label="Что за долг"
@@ -250,7 +250,7 @@ export function Obligations({
             </Button>
           </Group>
         </Stack>
-      </Modal>
+      </FormDrawer>
     </Stack>
   );
 }

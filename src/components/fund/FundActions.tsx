@@ -5,7 +5,6 @@ import {
   ActionIcon,
   Button,
   Group,
-  Modal,
   Select,
   Stack,
   Table,
@@ -14,6 +13,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { FormDrawer } from '@/components/FormDrawer';
 import { IconX } from '@tabler/icons-react';
 import { deleteFundMovement, extraTopupFund, topupFund } from '@/actions/fund';
 import { ReimburseForm } from '@/components/day/ReimburseForm';
@@ -61,14 +61,13 @@ export function FundToolbar({
         accounts={accounts}
         defaultAccountId={defaultAccountId}
       />
-      <Modal
+      <FormDrawer
         opened={reimburseOpen}
         onClose={() => setReimburseOpen(false)}
         title="Компенсация из КС"
-        centered
       >
         <ReimburseForm date={todayLocalISO()} fundCategories={fundCategories} />
-      </Modal>
+      </FormDrawer>
       <ExtraTopupModal
         opened={extraOpen}
         onClose={() => setExtraOpen(false)}
@@ -113,7 +112,7 @@ function TopupModal({
     });
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Пополнение КС по плану" centered>
+    <FormDrawer opened={opened} onClose={onClose} title="Пополнение КС по плану">
       <Stack gap="sm">
         <Table verticalSpacing={4} fz="sm">
           <Table.Tbody>
@@ -159,7 +158,7 @@ function TopupModal({
           </Button>
         </Group>
       </Stack>
-    </Modal>
+    </FormDrawer>
   );
 }
 
@@ -205,7 +204,7 @@ function ExtraTopupModal({
     });
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Внеплановое пополнение статьи" centered>
+    <FormDrawer opened={opened} onClose={onClose} title="Внеплановое пополнение статьи">
       <Stack gap="sm">
         <Select label="Статья" data={data} value={fundCategoryId} onChange={setFundCategoryId} searchable />
         <TextInput
@@ -232,7 +231,7 @@ function ExtraTopupModal({
           </Button>
         </Group>
       </Stack>
-    </Modal>
+    </FormDrawer>
   );
 }
 

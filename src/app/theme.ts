@@ -24,7 +24,7 @@ export const theme = createTheme({
   cursorType: 'pointer',
   fontFamily:
     'var(--font-golos), -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-  fontFamilyMonospace: 'var(--font-jbmono), ui-monospace, SFMono-Regular, Menlo, monospace',
+  fontFamilyMonospace: "ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace",
   headings: {
     fontFamily:
       'var(--font-golos), -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',

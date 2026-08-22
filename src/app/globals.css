@@ -9,11 +9,10 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Все суммы — моноширинные табличные цифры «бухгалтерской тетради» */
+/* Все суммы — Golos с табличными цифрами: одинаковая ширина знаков,
+   чистый ноль, единый стиль с остальным текстом. */
 .money {
-  font-family: var(--font-jbmono), ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
   white-space: nowrap;
 }
 
@@ -69,7 +68,8 @@ body {
   overflow-x: hidden;
 }
 
-/* Standalone-режим (добавлено на экран «Домой»): отступы под системные зоны iPhone */
+/* Standalone-режим (добавлено на экран «Домой»): отступы под системные зоны iPhone.
+   Высота шапки уже включает inset (задано в Shell), здесь — нижние зоны и оверлеи. */
 @media (display-mode: standalone) {
   html,
   body {
@@ -80,7 +80,20 @@ body {
   .mantine-AppShell-main {
     padding-bottom: calc(var(--app-shell-padding, 16px) + env(safe-area-inset-bottom, 0px));
   }
-  .mantine-AppShell-header {
-    padding-top: env(safe-area-inset-top, 0px);
+
+  /* Бургер-меню на мобильном: контент не подлезает под home-индикатор */
+  .mantine-AppShell-navbar {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Drawer снизу и модальные слои: отступ под home-индикатор и «чёлку» */
+  .mantine-Drawer-content[data-position='bottom'] .mantine-Drawer-body {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+  .mantine-Drawer-content[data-position='right'] .mantine-Drawer-body {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+  .mantine-Drawer-header {
+    padding-top: max(16px, env(safe-area-inset-top, 0px));
   }
 }

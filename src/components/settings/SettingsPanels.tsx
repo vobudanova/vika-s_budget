@@ -5,7 +5,6 @@ import {
   ActionIcon,
   Button,
   Group,
-  Modal,
   NumberInput,
   Select,
   Stack,
@@ -16,6 +15,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { FormDrawer } from '@/components/FormDrawer';
 import { IconArchive, IconArchiveOff, IconCheck, IconPencil, IconTrash } from '@tabler/icons-react';
 import {
   archiveCategory,
@@ -253,7 +253,7 @@ function RenameModal({ cat, onClose }: { cat: Cat | null; onClose: () => void })
       onClose();
     });
   return (
-    <Modal opened={!!cat} onClose={onClose} title="Переименовать категорию" centered size="sm">
+    <FormDrawer opened={!!cat} onClose={onClose} title="Переименовать категорию" desktopSize="sm">
       <Stack gap="sm">
         <TextInput label="Название" value={value} onChange={(e) => setValue(e.currentTarget.value)} autoFocus />
         <Text fz="xs" c="dimmed">
@@ -268,7 +268,7 @@ function RenameModal({ cat, onClose }: { cat: Cat | null; onClose: () => void })
           </Button>
         </Group>
       </Stack>
-    </Modal>
+    </FormDrawer>
   );
 }
 
@@ -287,7 +287,7 @@ function DeleteModal({
       onClose();
     });
   return (
-    <Modal opened={!!state} onClose={onClose} title={`Удаление «${state?.cat.name}»`} centered>
+    <FormDrawer opened={!!state} onClose={onClose} title={`Удаление «${state?.cat.name}»`}>
       <Stack gap="sm">
         <Text fz="sm">По категории есть данные — сразу удалить нельзя. Затронуты:</Text>
         <Stack gap={2}>
@@ -311,7 +311,7 @@ function DeleteModal({
           </Button>
         </Group>
       </Stack>
-    </Modal>
+    </FormDrawer>
   );
 }
 

@@ -11,7 +11,9 @@ import {
   Text,
   Tooltip,
   UnstyledButton,
+  em,
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { IconChevronRight, IconTrash } from '@tabler/icons-react';
 import type { SheetSection, SheetRow } from '@/queries/month';
 import { fmtNumber } from '@/lib/money';
@@ -55,19 +57,34 @@ export function SheetTable({
     Object.fromEntries(sections.filter((s) => COLLAPSIBLE.has(s.key)).map((s) => [s.key, true])),
   );
 
+  // Мобильный UX: при горизонтальной прокрутке залипшая колонка названий
+  // сжимается до ~22% экрана, чтобы таблице оставалось место
+  const isMobile = useMediaQuery(`(max-width: ${em(768)})`, false);
+  const [scrolledX, setScrolledX] = useState(false);
+  const shrink = isMobile && scrolledX;
+
   const firstCol: React.CSSProperties = {
     position: 'sticky',
     left: 0,
     background: 'var(--mantine-color-white)',
-    minWidth: firstColWidth,
     zIndex: 2,
     // граница рисуется тенью: обычный border у sticky-ячейки уезжает под контент
     boxShadow: '1px 0 0 0 var(--table-border-color, var(--mantine-color-gray-3))',
   };
 
+  // min/max-width у ячеек auto-таблицы не работают — ширину колонки задаёт
+  // блок-обёртка внутри ячейки (см. FirstCellBox); 2*CELL_PX — паддинги ячейки
+  const cellBoxWidth = shrink
+    ? `calc(22vw - ${2 * CELL_PX}px)`
+    : `${firstColWidth - 2 * CELL_PX}px`;
+
   return (
     <Card p={0}>
-      <ScrollArea type="auto" offsetScrollbars>
+      <ScrollArea
+        type="auto"
+        offsetScrollbars
+        onScrollPositionChange={({ x }) => setScrolledX(x > 8)}
+      >
         <Table
           className="sheet"
           fz={FS}
@@ -79,7 +96,14 @@ export function SheetTable({
         >
           <Table.Thead>
             <Table.Tr>
-              <Table.Th style={firstCol} />
+              <Table.Th
+                style={{
+                  ...firstCol,
+                  // нижняя черта тоже тенью: у sticky-ячейки collapsed-граница не рисуется
+                  boxShadow:
+                    '1px 0 0 0 var(--table-border-color, var(--mantine-color-gray-3)), inset 0 -1px 0 0 var(--table-border-color, var(--mantine-color-gray-3))',
+                }}
+              />
               <Table.Th style={{ minWidth: 108 }} />
               {columns.map((c) => (
                 <Table.Th
@@ -106,9 +130,11 @@ export function SheetTable({
             {topRows.map((r) => (
               <Table.Tr key={r.label}>
                 <Table.Td style={firstCol}>
-                  <Text fz={FS} fw={r.muted ? 400 : 700} c={r.muted ? 'gray.5' : undefined}>
-                    {r.label}
-                  </Text>
+                  <FirstCellBox w={cellBoxWidth}>
+                    <Text fz={FS} fw={r.muted ? 400 : 700} c={r.muted ? 'gray.5' : undefined} truncate>
+                      {r.label}
+                    </Text>
+                  </FirstCellBox>
                 </Table.Td>
                 <NumCell v={r.total} strong={!r.muted} muted={r.muted} />
                 {columns.map((c) => (
@@ -123,6 +149,8 @@ export function SheetTable({
                 s={s}
                 columns={columns}
                 firstCol={firstCol}
+                cellBoxWidth={cellBoxWidth}
+                shrunk={shrink}
                 collapsible={COLLAPSIBLE.has(s.key)}
                 collapsed={!!collapsed[s.key]}
                 onToggle={() => setCollapsed((p) => ({ ...p, [s.key]: !p[s.key] }))}
@@ -136,10 +164,18 @@ export function SheetTable({
   );
 }
 
+function FirstCellBox({ w, children }: { w: string; children: React.ReactNode }) {
+  return (
+    <div style={{ width: w, overflow: 'hidden', transition: 'width 160ms ease' }}>{children}</div>
+  );
+}
+
 function Section({
   s,
   columns,
   firstCol,
+  cellBoxWidth,
+  shrunk,
   collapsible,
   collapsed,
   onToggle,
@@ -147,6 +183,8 @@ function Section({
   s: SheetSection;
   columns: SheetColumn[];
   firstCol: React.CSSProperties;
+  cellBoxWidth: string;
+  shrunk: boolean;
   collapsible: boolean;
   collapsed: boolean;
   onToggle: () => void;
@@ -161,28 +199,30 @@ function Section({
             background: headerBg === 'transparent' ? 'var(--mantine-color-white)' : headerBg,
           }}
         >
-          {collapsible ? (
-            <UnstyledButton onClick={onToggle} style={{ display: 'block', width: '100%' }}>
-              <Group gap={6} wrap="nowrap">
-                <IconChevronRight
-                  size={15}
-                  stroke={2.2}
-                  style={{
-                    transform: collapsed ? 'none' : 'rotate(90deg)',
-                    transition: 'transform 140ms ease',
-                    flexShrink: 0,
-                  }}
-                />
-                <Text fz={FS} fw={700}>
-                  {s.title}
-                </Text>
-              </Group>
-            </UnstyledButton>
-          ) : (
-            <Text fz={FS} fw={700}>
-              {s.title}
-            </Text>
-          )}
+          <FirstCellBox w={cellBoxWidth}>
+            {collapsible ? (
+              <UnstyledButton onClick={onToggle} style={{ display: 'block', width: '100%' }}>
+                <Group gap={6} wrap="nowrap">
+                  <IconChevronRight
+                    size={15}
+                    stroke={2.2}
+                    style={{
+                      transform: collapsed ? 'none' : 'rotate(90deg)',
+                      transition: 'transform 140ms ease',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Text fz={FS} fw={700} truncate>
+                    {s.title}
+                  </Text>
+                </Group>
+              </UnstyledButton>
+            ) : (
+              <Text fz={FS} fw={700} truncate>
+                {s.title}
+              </Text>
+            )}
+          </FirstCellBox>
         </Table.Td>
         <NumCell v={s.total} strong />
         {columns.map((c) => (
@@ -193,24 +233,26 @@ function Section({
         s.rows.map((r) => (
           <Table.Tr key={r.key}>
             <Table.Td style={firstCol}>
-              <Group gap={6} wrap="nowrap">
-                <Text
-                  fz={FS}
-                  pl={collapsible ? 27 : 16}
-                  c={r.pendingDelete ? 'red.7' : 'dark.4'}
-                  truncate
-                  td={r.pendingDelete ? 'line-through' : undefined}
-                >
-                  {r.name}
-                </Text>
-                {r.pendingDelete && Math.abs(r.total) < 0.005 && r.onDelete && (
-                  <Tooltip label="Удалить навсегда (данных не осталось)">
-                    <ActionIcon size="xs" color="red" variant="subtle" onClick={r.onDelete}>
-                      <IconTrash size={13} />
-                    </ActionIcon>
-                  </Tooltip>
-                )}
-              </Group>
+              <FirstCellBox w={cellBoxWidth}>
+                <Group gap={6} wrap="nowrap">
+                  <Text
+                    fz={FS}
+                    pl={shrunk ? 0 : collapsible ? 27 : 16}
+                    c={r.pendingDelete ? 'red.7' : 'dark.4'}
+                    truncate
+                    td={r.pendingDelete ? 'line-through' : undefined}
+                  >
+                    {r.name}
+                  </Text>
+                  {r.pendingDelete && Math.abs(r.total) < 0.005 && r.onDelete && (
+                    <Tooltip label="Удалить навсегда (данных не осталось)">
+                      <ActionIcon size="xs" color="red" variant="subtle" onClick={r.onDelete}>
+                        <IconTrash size={13} />
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                </Group>
+              </FirstCellBox>
             </Table.Td>
             <NumCell v={r.total} mutedTotal />
             {columns.map((c) => (

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Golos_Text, JetBrains_Mono } from 'next/font/google';
+import { Golos_Text } from 'next/font/google';
 import { ColorSchemeScript, mantineHtmlProps } from '@mantine/core';
 
 import '@mantine/core/styles.css';
@@ -14,13 +14,6 @@ const golos = Golos_Text({
   subsets: ['latin', 'cyrillic'],
   weight: ['400', '500', '600'],
   variable: '--font-golos',
-  display: 'swap',
-});
-
-const jbMono = JetBrains_Mono({
-  subsets: ['latin', 'cyrillic'],
-  weight: ['400', '500', '600'],
-  variable: '--font-jbmono',
   display: 'swap',
 });
 
@@ -42,12 +35,15 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  // standalone: без pinch-to-zoom (утилитарный инструмент)
+  maximumScale: 1,
+  userScalable: false,
   themeColor: '#faf7f5',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ru" {...mantineHtmlProps} className={`${golos.variable} ${jbMono.variable}`}>
+    <html lang="ru" {...mantineHtmlProps} className={`${golos.variable}`}>
       <head>
         <ColorSchemeScript forceColorScheme="light" />
       </head>

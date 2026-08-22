@@ -5,13 +5,13 @@ import {
   ActionIcon,
   Button,
   Group,
-  Modal,
   Stack,
   Text,
   TextInput,
   Tooltip,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { FormDrawer } from '@/components/FormDrawer';
 import { IconPencil, IconX } from '@tabler/icons-react';
 import { deleteTransaction, updateTransaction } from '@/actions/transactions';
 import type { TxRow } from '@/queries/core';
@@ -140,7 +140,7 @@ function EditModal({ t, onClose }: { t: TxRow | null; onClose: () => void }) {
     });
 
   return (
-    <Modal opened={!!t} onClose={onClose} title="Изменить операцию" centered size="sm">
+    <FormDrawer opened={!!t} onClose={onClose} title="Изменить операцию" desktopSize="sm">
       <Stack gap="sm">
         <TextInput
           label="Дата"
@@ -164,6 +164,6 @@ function EditModal({ t, onClose }: { t: TxRow | null; onClose: () => void }) {
           </Button>
         </Group>
       </Stack>
-    </Modal>
+    </FormDrawer>
   );
 }

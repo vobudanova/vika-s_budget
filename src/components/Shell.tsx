@@ -86,7 +86,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <AppShell
-      header={{ height: 54 }}
+      // высота шапки включает safe-area сверху (standalone на iPhone)
+      header={{ height: 'calc(54px + env(safe-area-inset-top, 0px))' }}
       navbar={{ width: 224, breakpoint: 'sm', collapsed: { mobile: !opened } }}
       padding="md"
       styles={{
@@ -96,7 +97,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
       }}
     >
       <AppShell.Header withBorder={false}>
-        <Group h="100%" px="md" justify="space-between" wrap="nowrap">
+        <Group
+          h="100%"
+          px="md"
+          justify="space-between"
+          wrap="nowrap"
+          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+        >
           <Group gap="sm" wrap="nowrap">
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" aria-label="Меню" />
             <Text
