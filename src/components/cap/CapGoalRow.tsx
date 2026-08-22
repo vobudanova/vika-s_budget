@@ -21,7 +21,7 @@ import { FormDrawer } from '@/components/FormDrawer';
 import { spendCapGoal, toggleCapContribution } from '@/actions/cap';
 import type { CapGoalOverview } from '@/queries/cap';
 import { Money } from '@/components/Money';
-import { fmtMoney, fmtMoneyExact, round2 } from '@/lib/money';
+import { fmtMoneyExact, round2 } from '@/lib/money';
 import { RU_MONTH_SHORT, dateShort, ymOf } from '@/lib/dates';
 import { todayLocalISO } from '@/components/assets/today';
 
