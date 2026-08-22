@@ -21,6 +21,8 @@ import { Money } from '@/components/Money';
 import { NewDayDrawer } from '@/components/NewDayDrawer';
 import { categorySelectData } from '@/components/tx-helpers';
 
+export const metadata = { title: 'Дашборд' };
+
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {

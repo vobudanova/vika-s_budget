@@ -9,6 +9,13 @@ import { WipeButton } from '@/components/WipeButton';
 
 export const dynamic = 'force-dynamic';
 
+export async function generateMetadata({ params }: { params: Promise<{ ym: string }> }) {
+  const { ym } = await params;
+  if (!isValidYM(ym)) return { title: 'Месяц' };
+  const t = ymTitle(ym);
+  return { title: t.charAt(0).toUpperCase() + t.slice(1) };
+}
+
 export default async function MonthPage({ params }: { params: Promise<{ ym: string }> }) {
   const { ym } = await params;
   if (!isValidYM(ym)) notFound();

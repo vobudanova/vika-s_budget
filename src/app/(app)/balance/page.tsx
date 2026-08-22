@@ -10,6 +10,8 @@ import { fmtMoney, toNum } from '@/lib/money';
 import { dateTitleFull, todayISO } from '@/lib/dates';
 import { WipeButton } from '@/components/WipeButton';
 
+export const metadata = { title: 'Баланс' };
+
 export const dynamic = 'force-dynamic';
 
 const GROUPS: { title: string; types: string[] }[] = [

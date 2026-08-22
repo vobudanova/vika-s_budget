@@ -21,6 +21,8 @@ import { fmtMoney } from '@/lib/money';
 import { dateShort } from '@/lib/dates';
 import { WipeButton } from '@/components/WipeButton';
 
+export const metadata = { title: 'Амортизация' };
+
 export const dynamic = 'force-dynamic';
 
 export default async function AssetsPage() {

@@ -92,27 +92,20 @@ for (lw, lh, dpr, statusH) in DEVICES {
   lo.lineCapStyle = .round; lo.lineJoinStyle = .round; lo.stroke()
 
   // — скелет дашборда: как в src/app/(app)/loading.tsx —
+  // приветствие по центру + круглая кнопка справа, сумма, 6 квадратных плиток
   let x = 16.0, cw = lw - 32
-  var y = statusH + 54 + 16
-  bar(x, y, min(260, cw), 28, 8, skel); y += 34            // заголовок
-  bar(x, y, 180, 14, 8, skel); y += 14 + 20                // подзаголовок, gap lg
-  for _ in 0..<2 {                                         // две широкие карточки
-    cardBox(y, 162, x, cw)
-    bar(x + 16, y + 16, 140, 12, 8, skel)
-    bar(x + 16, y + 40, 200, 34, 8, skel)
-    bar(x + 16, y + 86, cw - 32, 12, 8, skel)
-    bar(x + 16, y + 110, cw - 32, 12, 8, skel)
-    bar(x + 16, y + 134, (cw - 32) * 0.7, 12, 8, skel)
-    y += 162 + 16
-  }
-  y += 4                                                   // gap lg вместо md между гридами
-  for _ in 0..<3 {                                         // три короткие карточки
-    if y > lh { break }
-    cardBox(y, 106, x, cw)
-    bar(x + 16, y + 16, 120, 12, 8, skel)
-    bar(x + 16, y + 40, 140, 28, 8, skel)
-    bar(x + 16, y + 80, 100, 10, 8, skel)
-    y += 106 + 16
+  var y = statusH + 54 + 16 + 10
+  bar((lw - 210) / 2, y + 11, 210, 24, 8, skel)            // «Привет, Виктория!»
+  bar(lw - 8 - 46, y, 46, 46, 23, skel)                    // круглая кнопка нового дня
+  y += 46 + 32
+  bar((lw - 190) / 2, y, 190, 34, 8, skel)                 // баланс
+  y += 34 + 32
+  let tile = (cw - 16) / 2                                 // плитки: 2 в ряд, gap md
+  for row in 0..<3 {
+    let ty = y + Double(row) * (tile + 16)
+    if ty > lh { break }
+    bar(x, ty, tile, tile, 16, skel)
+    bar(x + tile + 16, ty, tile, tile, 16, skel)
   }
 
   NSGraphicsContext.current?.flushGraphics()

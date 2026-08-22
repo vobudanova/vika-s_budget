@@ -8,6 +8,11 @@ import { WipeButton } from '@/components/WipeButton';
 
 export const dynamic = 'force-dynamic';
 
+export async function generateMetadata({ params }: { params: Promise<{ y: string }> }) {
+  const { y } = await params;
+  return { title: `Год ${y}` };
+}
+
 export default async function YearPage({ params }: { params: Promise<{ y: string }> }) {
   const { y } = await params;
   if (!/^\d{4}$/.test(y)) notFound();

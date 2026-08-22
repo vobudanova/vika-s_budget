@@ -23,6 +23,8 @@ import { todayISO, ymOf, ymTitle } from '@/lib/dates';
 import { fmtMoney } from '@/lib/money';
 import { WipeButton } from '@/components/WipeButton';
 
+export const metadata = { title: 'КАП' };
+
 export const dynamic = 'force-dynamic';
 
 export default async function CapPage() {

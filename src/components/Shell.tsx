@@ -78,7 +78,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
     item.exact ? pathname === item.href : pathname === item.prefix || pathname.startsWith(item.prefix + '/');
 
   // Широкие страницы-листы: контент без ограничения по ширине
-  const wide = pathname.startsWith('/month') || pathname.startsWith('/year');
+  const wide =
+    pathname.startsWith('/month') || pathname.startsWith('/year') || pathname.startsWith('/cap');
 
   return (
     <AppShell

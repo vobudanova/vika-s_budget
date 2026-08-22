@@ -6,6 +6,8 @@ import { SettingsPanels } from '@/components/settings/SettingsPanels';
 import { getSetting } from '@/queries/core';
 import { toNum } from '@/lib/money';
 
+export const metadata = { title: 'Настройки' };
+
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {

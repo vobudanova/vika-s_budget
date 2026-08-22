@@ -13,6 +13,8 @@ import {
 } from '@mantine/core';
 import { login, type LoginState } from '@/actions/auth';
 
+export const metadata = { title: 'Вход' };
+
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState<LoginState, FormData>(login, {});
 

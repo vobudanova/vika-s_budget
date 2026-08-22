@@ -24,6 +24,8 @@ import { todayISO, RU_MONTHS } from '@/lib/dates';
 import { fmtMoney, toNum } from '@/lib/money';
 import { WipeButton } from '@/components/WipeButton';
 
+export const metadata = { title: 'Доходы' };
+
 export const dynamic = 'force-dynamic';
 
 export default async function IncomePage() {

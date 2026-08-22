@@ -58,16 +58,15 @@ export function CapGoalRow({
     });
   };
 
-  // флажки: с месяца начала амортизации по декабрь текущего года
+  // флажки: все годы с начала амортизации, каждый ряд — полные 12 месяцев;
+  // месяцы до покупки и будущие — неактивны
   const startYm = goal.startDate ? ymOf(goal.startDate) : (goal.firstOwnYm ?? currentYm);
   const startYear = Number(startYm.slice(0, 4));
-  const startMonth = Number(startYm.slice(5, 7));
   const currentYear = Number(currentYm.slice(0, 4));
-  const years: { year: number; months: number[] }[] = [];
-  for (let y = Math.min(startYear, currentYear); y <= currentYear; y++) {
-    const from = y === startYear ? startMonth : 1;
-    years.push({ year: y, months: Array.from({ length: 12 - from + 1 }, (_, i) => from + i) });
-  }
+  const years = Array.from(
+    { length: currentYear - Math.min(startYear, currentYear) + 1 },
+    (_, i) => Math.min(startYear, currentYear) + i,
+  );
 
   return (
     <TableTr>
@@ -106,17 +105,18 @@ export function CapGoalRow({
       </TableTd>
       <TableTd>
         <Group gap={8} wrap="wrap" style={{ rowGap: 4 }}>
-          {years.map(({ year, months }) => (
+          {years.map((year) => (
             <Group key={year} gap={3} wrap="nowrap">
               {years.length > 1 && (
                 <Text fz={10} c="dimmed" className="money" style={{ flexShrink: 0 }}>
                   ’{String(year).slice(2)}
                 </Text>
               )}
-              {months.map((m) => {
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
                 const ym = `${year}-${String(m).padStart(2, '0')}`;
                 const flag = goal.monthsFlags[ym];
-                const isFuture = ym > currentYm;
+                // до покупки и в будущем взнос невозможен — флажок заблокирован
+                const locked = ym < startYm || ym > currentYm;
                 const checked = !!flag;
                 return (
                   <Tooltip
@@ -124,12 +124,16 @@ export function CapGoalRow({
                     label={
                       checked
                         ? `${fmtMoney(flag!.amount)}${flag!.sent ? ' · отправлен' : ' · не отправлен'}`
-                        : 'Отметить взнос'
+                        : locked
+                          ? ym < startYm
+                            ? 'До покупки'
+                            : 'Будущий месяц'
+                          : 'Отметить взнос'
                     }
                   >
                     <UnstyledButton
-                      onClick={() => !isFuture && toggle(ym)}
-                      disabled={isFuture || busyYm !== null}
+                      onClick={() => !locked && toggle(ym)}
+                      disabled={locked || busyYm !== null}
                       aria-label={`Взнос ${ym}`}
                       style={{
                         width: 24,
@@ -144,15 +148,17 @@ export function CapGoalRow({
                           ? flag!.sent
                             ? 'var(--mantine-color-ink-7)'
                             : 'var(--mantine-color-ink-1)'
-                          : 'var(--mantine-color-gray-1)',
+                          : locked
+                            ? 'var(--mantine-color-gray-0)'
+                            : 'var(--mantine-color-gray-1)',
                         color: checked
                           ? flag!.sent
                             ? '#fff'
                             : 'var(--mantine-color-ink-8)'
-                          : isFuture
+                          : locked
                             ? 'var(--mantine-color-gray-4)'
                             : 'var(--mantine-color-gray-6)',
-                        cursor: isFuture ? 'default' : 'pointer',
+                        cursor: locked ? 'default' : 'pointer',
                       }}
                     >
                       {busyYm === ym ? (

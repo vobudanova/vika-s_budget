@@ -1,34 +1,25 @@
-import { Card, SimpleGrid, Skeleton, Stack } from '@mantine/core';
+import { Box, SimpleGrid, Skeleton, Stack } from '@mantine/core';
 
+/** Скелет дашборда: приветствие + круглая кнопка, сумма, шесть квадратных плиток. */
 export default function Loading() {
   return (
-    <Stack gap="lg">
-      <Stack gap={6}>
-        <Skeleton height={28} width={260} />
-        <Skeleton height={14} width={180} />
+    <Stack gap="xl">
+      <Box pos="relative" mt="xs">
+        <Stack align="center" justify="center" h={46}>
+          <Skeleton height={24} width={210} />
+        </Stack>
+        <Box pos="absolute" right={{ base: -8, sm: 0 }} top="50%" style={{ transform: 'translateY(-50%)' }}>
+          <Skeleton height={46} width={46} radius="50%" />
+        </Box>
+      </Box>
+
+      <Stack gap={4} align="center">
+        <Skeleton height={34} width={190} />
       </Stack>
-      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-        {[0, 1].map((i) => (
-          <Card key={i}>
-            <Stack gap="sm">
-              <Skeleton height={12} width={140} />
-              <Skeleton height={34} width={200} />
-              <Skeleton height={12} />
-              <Skeleton height={12} />
-              <Skeleton height={12} width="70%" />
-            </Stack>
-          </Card>
-        ))}
-      </SimpleGrid>
-      <SimpleGrid cols={{ base: 1, xs: 3 }} spacing="md">
-        {[0, 1, 2].map((i) => (
-          <Card key={i}>
-            <Stack gap="sm">
-              <Skeleton height={12} width={120} />
-              <Skeleton height={28} width={140} />
-              <Skeleton height={10} width={100} />
-            </Stack>
-          </Card>
+
+      <SimpleGrid cols={{ base: 2, sm: 3 }} spacing={{ base: 'md', sm: 'xl' }}>
+        {Array.from({ length: 6 }, (_, i) => (
+          <Skeleton key={i} radius="lg" width="100%" height="auto" style={{ aspectRatio: '1 / 1' }} />
         ))}
       </SimpleGrid>
     </Stack>

@@ -31,9 +31,10 @@ const HEAD_FZ = 22; // числа дней и названия месяцев (�
 const CELL_PX = 14;
 
 const BORDER = 'var(--table-border-color, var(--mantine-color-gray-3))';
-/** Нижняя черта фоном: у sticky-ячеек и обычный border, и box-shadow ненадёжны на iOS. */
-const bottomLineBg = (px: number) =>
-  `linear-gradient(to top, ${BORDER} ${px}px, var(--mantine-color-white) ${px}px)`;
+/** Нижняя черта фоном: collapsed-граница у sticky-ячейки «отстаёт» от неё при
+    прилипании (двойные линии), фон же всегда едет вместе с ячейкой. */
+const bottomLineBg = (px: number, bg = 'var(--mantine-color-white)') =>
+  `linear-gradient(to top, ${BORDER} ${px}px, ${bg} ${px}px)`;
 
 export function SheetTable({
   columns,
@@ -99,16 +100,27 @@ export function SheetTable({
         >
           <Table.Thead>
             <Table.Tr>
-              <Table.Th style={{ ...firstCol, background: bottomLineBg(1) }} />
-              <Table.Th style={{ minWidth: 108, borderBottom: `1px solid ${BORDER}` }} />
+              <Table.Th style={{ ...firstCol, border: 'none', background: bottomLineBg(1) }} />
+              <Table.Th
+                style={{
+                  minWidth: 108,
+                  border: 'none',
+                  background: bottomLineBg(1),
+                  boxShadow: `inset -1px 0 0 0 ${BORDER}`,
+                }}
+              />
               {columns.map((c) => (
                 <Table.Th
                   key={c.key}
                   ta="center"
                   px={CELL_PX}
                   py={HEAD_PY}
-                  style={{ minWidth: 86, borderBottom: `1px solid ${BORDER}` }}
-                  bg={c.highlight ? 'var(--mantine-color-ink-1)' : undefined}
+                  style={{
+                    minWidth: 86,
+                    border: 'none',
+                    background: bottomLineBg(1, c.highlight ? 'var(--mantine-color-ink-1)' : undefined),
+                    boxShadow: `inset -1px 0 0 0 ${BORDER}`,
+                  }}
                 >
                   {c.href ? (
                     <Text component={Link} href={c.href} fz={HEAD_FZ} fw={600} c="ink.6" td="none">
@@ -129,7 +141,14 @@ export function SheetTable({
               const last = i === topRows.length - 1;
               return (
                 <Table.Tr key={r.label}>
-                  <Table.Td style={{ ...firstCol, background: last ? bottomLineBg(2) : undefined }}>
+                  <Table.Td
+                    style={{
+                      ...firstCol,
+                      // жирная линия — фоном в каждой ячейке строки (высота совпадает везде),
+                      // родная межстрочная граница подавляется
+                      ...(last ? { background: bottomLineBg(2), borderBottomStyle: 'hidden' as const } : null),
+                    }}
+                  >
                     <FirstCellBox w={cellBoxWidth}>
                       <Text
                         fz={FS}
@@ -155,6 +174,7 @@ export function SheetTable({
                       v={r.values[c.key]}
                       strong={!r.muted}
                       muted={r.muted}
+                      ta="center"
                       thickBottom={last}
                     />
                   ))}
@@ -322,8 +342,14 @@ export function NumCell({
       c={color}
       style={{
         ...(py !== undefined ? { paddingTop: py, paddingBottom: py } : null),
-        ...(bg ? { background: bg } : null),
-        ...(thickBottom ? { borderBottom: `2px solid ${BORDER}` } : null),
+        ...(bg ? { backgroundColor: bg } : null),
+        // линия фоном, как в первой колонке — иначе высота стыков не совпадает
+        ...(thickBottom
+          ? {
+              borderBottomStyle: 'hidden' as const,
+              backgroundImage: `linear-gradient(to top, ${BORDER} 2px, transparent 2px)`,
+            }
+          : null),
       }}
     >
       {isZero ? '0' : fmtNumber(v, 0)}

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { Group, Stack, Text, Title } from '@mantine/core';
-import { dateTitleFull, isValidISODate, todayISO } from '@/lib/dates';
+import { dateTitleFull, isValidISODate, todayISO, RU_MONTHS_GEN } from '@/lib/dates';
 import { getDayTransactions, getReference, getSetting } from '@/queries/core';
 import { isFilledDay } from '@/actions/misc';
 import { DayWorkspace } from '@/components/day/DayWorkspace';
@@ -10,6 +10,13 @@ import { Money } from '@/components/Money';
 import { categorySelectData } from '@/components/tx-helpers';
 
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({ params }: { params: Promise<{ date: string }> }) {
+  const { date } = await params;
+  if (!isValidISODate(date)) return { title: 'День' };
+  const [y, m, d] = date.split('-').map(Number);
+  return { title: `${d} ${RU_MONTHS_GEN[m - 1]} ${y}` };
+}
 
 export default async function DayPage({ params }: { params: Promise<{ date: string }> }) {
   const { date } = await params;
