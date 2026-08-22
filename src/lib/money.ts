@@ -20,6 +20,16 @@ export function fmtMoney(value: number | string, currency: 'RUB' | 'USD' = 'RUB'
   return `${fmtNumber(n, digits)}${THIN}${sign}`;
 }
 
+/** «300K», «1,2M» — компактная подпись для осей графиков. */
+export function fmtMoneyShort(value: number | string): string {
+  const n = typeof value === 'string' ? Number(value) : value;
+  if (!Number.isFinite(n)) return '';
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return `${(Math.round((n / 1_000_000) * 10) / 10).toLocaleString('ru-RU')}M`;
+  if (abs >= 1_000) return `${Math.round(n / 1_000)}K`;
+  return fmtNumber(n, 0);
+}
+
 /** Знак «+» для положительных — для лент операций по счёту. */
 export function fmtSigned(value: number | string, currency: 'RUB' | 'USD' = 'RUB'): string {
   const n = typeof value === 'string' ? Number(value) : value;

@@ -19,6 +19,7 @@ import {
   IconCirclePlus,
   IconCalendarMonth,
   IconChartHistogram,
+  IconChartPie,
   IconHourglassLow,
   IconTargetArrow,
   IconPigMoney,
@@ -51,6 +52,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         { href: today ? `/day/${today}` : '/day', prefix: '/day', label: 'Новый день', icon: <IconCirclePlus size={18} stroke={1.6} /> },
         { href: today ? `/month/${today.slice(0, 7)}` : '/month', prefix: '/month', label: 'Месяц', icon: <IconCalendarMonth size={18} stroke={1.6} /> },
         { href: today ? `/year/${today.slice(0, 4)}` : '/year', prefix: '/year', label: 'Год', icon: <IconChartHistogram size={18} stroke={1.6} /> },
+        { href: '/analytics', prefix: '/analytics', label: 'Аналитика', icon: <IconChartPie size={18} stroke={1.6} /> },
       ],
     },
     {
