@@ -153,12 +153,19 @@ function AssetTable({
               <TableTd ta="right">
                 <Money value={a.monthlyAmount} fz="sm" />
               </TableTd>
-              <TableTd ta="right" className="money">
+              <TableTd ta="center" className="money">
                 {a.prevYears} · {a.currentYear} ·{' '}
                 {a.future <= 2 && a.future > 0 && !finished ? (
-                  <Badge size="sm" variant="light" color="orange" component="span">
+                  <Text
+                    span
+                    inherit
+                    c="orange.8"
+                    px={7}
+                    bg="orange.1"
+                    style={{ borderRadius: 999, display: 'inline-block' }}
+                  >
                     {a.future}
-                  </Badge>
+                  </Text>
                 ) : (
                   a.future
                 )}
