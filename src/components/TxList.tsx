@@ -80,7 +80,7 @@ function TxLine({ t, showDate, last, onEdit }: { t: TxRow; showDate: boolean; la
           {title}
         </Text>
         {detail && (
-          <Text fz="xs" c="dimmed" truncate>
+          <Text fz="xs" c="dimmed" style={{ overflowWrap: 'anywhere' }}>
             {detail}
           </Text>
         )}

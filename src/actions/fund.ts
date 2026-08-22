@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { and, eq, gt, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { isValidISODate } from '@/lib/dates';
 import { parseAmountExpr, round2, toNum } from '@/lib/money';
@@ -269,4 +269,50 @@ export async function deleteFundMovement(id: number): Promise<ActionResult> {
   } catch (e) {
     return fail(e);
   }
+}
+
+// ------------------------------------------- постраничный список движений
+
+export type FundMoveCursor = { date: string; id: number };
+export type FundMoveRow = {
+  id: number;
+  date: string;
+  amount: number;
+  kind: string;
+  settle: string | null;
+  note: string | null;
+  categoryName: string;
+  groupName: string | null;
+};
+
+/** Страница движений фонда КС для бесконечного списка (50 шт., курсор date+id). */
+export async function listFundMovesPage(
+  cursor: FundMoveCursor | null,
+): Promise<{ items: FundMoveRow[]; nextCursor: FundMoveCursor | null }> {
+  const limit = 50;
+  const rows = await db.execute(sql`
+    SELECT m.id, m.date, m.amount, m.kind, m.settle, m.note,
+           fc.name AS category_name, fc.group_name
+    FROM fund_movements m
+    JOIN fund_categories fc ON fc.id = m.fund_category_id
+    ${cursor ? sql`WHERE (m.date, m.id) < (${cursor.date}::date, ${cursor.id})` : sql``}
+    ORDER BY m.date DESC, m.id DESC
+    LIMIT ${limit + 1}
+  `);
+  const mapped: FundMoveRow[] = (rows.rows as any[]).map((r) => ({
+    id: Number(r.id),
+    date: String(r.date),
+    amount: toNum(r.amount),
+    kind: String(r.kind),
+    settle: r.settle ?? null,
+    note: r.note ?? null,
+    categoryName: String(r.category_name),
+    groupName: r.group_name ?? null,
+  }));
+  const items = mapped.slice(0, limit);
+  const last = items[items.length - 1];
+  return {
+    items,
+    nextCursor: mapped.length > limit && last ? { date: last.date, id: last.id } : null,
+  };
 }

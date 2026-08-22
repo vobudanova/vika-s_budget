@@ -14,6 +14,7 @@ import {
   Text,
 } from '@mantine/core';
 import { PageHeader } from '@/components/PageHeader';
+import { ViewNav } from '@/components/ViewNav';
 import { Money } from '@/components/Money';
 import { CardLabel } from '@/components/CardLabel';
 import { FundMovementsList, FundToolbar } from '@/components/fund/FundActions';
@@ -40,6 +41,15 @@ export default async function FundPage() {
     <Stack gap="md">
       <PageHeader
         title="КС"
+        beside={
+          <ViewNav
+            value="sheet"
+            options={[
+              { value: 'sheet', label: 'Таблица', href: '/fund' },
+              { value: 'moves', label: 'Движения', href: '/fund/moves' },
+            ]}
+          />
+        }
         subtitle={
           <>
             Краткосрочные сбережения · остаток {fmtMoney(fund.totalBalance)} · план{' '}

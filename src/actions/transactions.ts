@@ -2,8 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { getTransactions, type TxRow } from '@/queries/core';
 import { parseAmountExpr } from '@/lib/money';
 import { isValidISODate } from '@/lib/dates';
 
@@ -313,4 +314,25 @@ export async function getDefaultAccountId(): Promise<number | null> {
     .where(and(eq(accounts.type, 'checking'), eq(accounts.isActive, true)))
     .limit(1);
   return acc?.id ?? null;
+}
+
+// ------------------------------------------- постраничный список доходов
+
+export type IncomeCursor = { date: string; id: number };
+
+/** Страница доходов для бесконечного списка: 50 операций, курсор (date, id). */
+export async function listIncomePage(
+  cursor: IncomeCursor | null,
+): Promise<{ items: TxRow[]; nextCursor: IncomeCursor | null }> {
+  const limit = 50;
+  const where = cursor
+    ? sql`t.kind IN ('income', 'coverage_in') AND (t.date, t.id) < (${cursor.date}::date, ${cursor.id})`
+    : sql`t.kind IN ('income', 'coverage_in')`;
+  const rows = await getTransactions(where, limit + 1);
+  const items = rows.slice(0, limit);
+  const last = items[items.length - 1];
+  return {
+    items,
+    nextCursor: rows.length > limit && last ? { date: last.date, id: last.id } : null,
+  };
 }

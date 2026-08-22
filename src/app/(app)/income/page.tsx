@@ -1,12 +1,11 @@
-import { Card, Stack } from '@mantine/core';
+import { Card, Stack, Text } from '@mantine/core';
 import { sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { PageHeader } from '@/components/PageHeader';
-import { CardLabel } from '@/components/CardLabel';
-import { TxList } from '@/components/TxList';
 import { IncomeSheet, type IncomeSheetGroup } from '@/components/income/IncomeSheet';
 import { IncomeToolbar } from '@/components/income/IncomeToolbar';
-import { getReference, getTransactions } from '@/queries/core';
+import { ViewNav } from '@/components/ViewNav';
+import { getReference } from '@/queries/core';
 import { categorySelectData } from '@/components/tx-helpers';
 import { todayISO } from '@/lib/dates';
 import { fmtMoney, toNum } from '@/lib/money';
@@ -21,16 +20,13 @@ export default async function IncomePage() {
   const year = today.slice(0, 4);
   const ref = await getReference(today);
 
-  const [matrixRes, recent] = await Promise.all([
-    db.execute(sql`
-      SELECT s.id, s.name, EXTRACT(MONTH FROM t.date)::int AS m, sum(t.amount) AS total
-      FROM transactions t
-      JOIN income_sources s ON s.id = t.income_source_id
-      WHERE t.kind = 'income' AND t.date BETWEEN ${`${year}-01-01`} AND ${`${year}-12-31`}
-      GROUP BY 1, 2, 3
-    `),
-    getTransactions(sql`t.kind IN ('income', 'coverage_in') AND t.date >= ${`${year}-01-01`}`),
-  ]);
+  const matrixRes = await db.execute(sql`
+    SELECT s.id, s.name, EXTRACT(MONTH FROM t.date)::int AS m, sum(t.amount) AS total
+    FROM transactions t
+    JOIN income_sources s ON s.id = t.income_source_id
+    WHERE t.kind = 'income' AND t.date BETWEEN ${`${year}-01-01`} AND ${`${year}-12-31`}
+    GROUP BY 1, 2, 3
+  `);
 
   const cells = new Map<string, number>();
   const totals = new Map<number, number>();
@@ -75,6 +71,15 @@ export default async function IncomePage() {
     <Stack gap="md">
       <PageHeader
         title="Доходы"
+        beside={
+          <ViewNav
+            value="sheet"
+            options={[
+              { value: 'sheet', label: 'Таблица', href: '/income' },
+              { value: 'list', label: 'Список', href: '/income/list' },
+            ]}
+          />
+        }
         subtitle={`${year}: ${fmtMoney(yearTotal)}`}
         right={
           <IncomeToolbar
@@ -88,16 +93,13 @@ export default async function IncomePage() {
           />
         }
       />
-      {sourcesWithData.length > 0 && (
+      {sourcesWithData.length > 0 ? (
         <IncomeSheet groups={typeGroups} monthTotals={monthTotals} yearTotal={yearTotal} year={year} />
+      ) : (
+        <Card>
+          <Text c="dimmed">Доходов в этом году пока нет.</Text>
+        </Card>
       )}
-
-      <Card>
-        <Stack gap="sm">
-          <CardLabel>Последние поступления</CardLabel>
-          <TxList items={recent.slice(0, 15)} showDate emptyText="Доходов в этом году пока нет" />
-        </Stack>
-      </Card>
       <WipeButton scope={{ scope: 'income' }} label="все записи доходов" />
     </Stack>
   );

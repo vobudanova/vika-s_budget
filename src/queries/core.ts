@@ -111,7 +111,7 @@ export type TxRow = {
   assetId: number | null;
 };
 
-export async function getTransactions(where: ReturnType<typeof sql>): Promise<TxRow[]> {
+export async function getTransactions(where: ReturnType<typeof sql>, limit?: number): Promise<TxRow[]> {
   const rows = await db.execute(sql`
     SELECT t.id, t.date, t.amount, t.amount_expr, t.kind, t.note, t.covered, t.acquired_note, t.fund_allocation,
            t.category_id, c.name AS category_name, cg.name AS group_name,
@@ -129,6 +129,7 @@ export async function getTransactions(where: ReturnType<typeof sql>): Promise<Tx
     LEFT JOIN fund_categories fc ON fc.id = t.fund_category_id
     WHERE ${where}
     ORDER BY t.date DESC, t.id DESC
+    ${limit ? sql`LIMIT ${limit}` : sql``}
   `);
   return (rows.rows as any[]).map(mapTx);
 }
