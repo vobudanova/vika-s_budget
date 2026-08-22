@@ -75,7 +75,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   // Широкие страницы-листы: контент без ограничения по ширине
   const wide =
-    pathname.startsWith('/month') || pathname.startsWith('/year') || pathname.startsWith('/cap');
+    pathname.startsWith('/month') ||
+    pathname.startsWith('/year') ||
+    pathname.startsWith('/cap') ||
+    pathname.startsWith('/fund');
 
   const brand = (
     <Text

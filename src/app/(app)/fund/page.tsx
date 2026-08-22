@@ -17,6 +17,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { Money } from '@/components/Money';
 import { CardLabel } from '@/components/CardLabel';
 import { FundMovementsList, FundToolbar } from '@/components/fund/FundActions';
+import { FundSheet } from '@/components/fund/FundSheet';
 import { getFundOverview } from '@/queries/fund';
 import { getReference } from '@/queries/core';
 import { todayISO } from '@/lib/dates';
@@ -68,83 +69,7 @@ export default async function FundPage() {
         </Alert>
       )}
 
-      <Card p={0}>
-        <ScrollArea type="auto" offsetScrollbars>
-          <Table miw={680} verticalSpacing={9} horizontalSpacing={12} fz="sm">
-            <TableThead>
-              <TableTr>
-                <TableTh>Статья</TableTh>
-                <TableTh ta="right">План/мес</TableTh>
-                <TableTh ta="right">Отложено {year}</TableTh>
-                <TableTh ta="right">Израсходовано {year}</TableTh>
-                <TableTh ta="right">Остаток</TableTh>
-              </TableTr>
-            </TableThead>
-            <TableTbody>
-              {groups.map((g) => {
-                const rows = fund.categories.filter((c) => c.groupName === g);
-                const sum = (f: (c: (typeof rows)[number]) => number) =>
-                  rows.reduce((s, c) => s + f(c), 0);
-                return [
-                  <TableTr key={g} bg="var(--mantine-color-gray-0)">
-                    <TableTd>
-                      <Text fw={700} fz="sm">
-                        {g}
-                      </Text>
-                    </TableTd>
-                    <TableTd ta="right" className="money">
-                      {fmtMoney(sum((c) => c.monthlyPlan))}
-                    </TableTd>
-                    <TableTd ta="right" className="money">
-                      {fmtMoney(sum((c) => c.contributedYtd))}
-                    </TableTd>
-                    <TableTd ta="right" className="money">
-                      {fmtMoney(sum((c) => c.spentYtd))}
-                    </TableTd>
-                    <TableTd ta="right">
-                      <Money value={sum((c) => c.balance)} fw={700} fz="sm" />
-                    </TableTd>
-                  </TableTr>,
-                  ...rows.map((c) => (
-                    <TableTr key={c.id}>
-                      <TableTd>
-                        <Text fz="sm" pl={12}>
-                          {c.name}
-                        </Text>
-                      </TableTd>
-                      <TableTd ta="right" className="money" c="dimmed">
-                        {c.monthlyPlan ? fmtMoney(c.monthlyPlan) : '—'}
-                      </TableTd>
-                      <TableTd ta="right" className="money">
-                        {c.contributedYtd ? fmtMoney(c.contributedYtd) : ''}
-                      </TableTd>
-                      <TableTd ta="right" className="money">
-                        {c.spentYtd ? fmtMoney(c.spentYtd) : ''}
-                      </TableTd>
-                      <TableTd ta="right">
-                        <Money value={c.balance} fz="sm" c={c.balance < 0 ? 'red.8' : undefined} />
-                      </TableTd>
-                    </TableTr>
-                  )),
-                ];
-              })}
-              <TableTr style={{ borderTop: '2px solid var(--ink-line)' }}>
-                <TableTd>
-                  <Text fw={700}>Итого</Text>
-                </TableTd>
-                <TableTd ta="right" className="money" fw={700}>
-                  {fmtMoney(fund.planTotal)}
-                </TableTd>
-                <TableTd />
-                <TableTd />
-                <TableTd ta="right">
-                  <Money value={fund.totalBalance} fw={700} />
-                </TableTd>
-              </TableTr>
-            </TableTbody>
-          </Table>
-        </ScrollArea>
-      </Card>
+      <FundSheet categories={fund.categories} year={year} />
 
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
         <Card>

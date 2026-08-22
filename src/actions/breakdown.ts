@@ -94,6 +94,21 @@ export async function getCellBreakdown(
             AND ${row ? sql`fm.fund_category_id = ${Number(row)}` : sql`true`}
           ORDER BY fm.date, fm.id`),
       );
+    } else if (section === 'fund-in') {
+      // «отложено» по статьям фонда: пополнения и корректировки
+      push(
+        await db.execute(sql`
+          SELECT fm.date, fc.name AS label,
+                 COALESCE(NULLIF(fm.note, ''),
+                          CASE fm.kind WHEN 'plan_topup' THEN 'пополнение по плану'
+                                       WHEN 'extra_topup' THEN 'доп. пополнение'
+                                       ELSE 'корректировка' END) AS sub,
+                 fm.amount AS s
+          FROM fund_movements fm JOIN fund_categories fc ON fc.id = fm.fund_category_id
+          WHERE fm.kind <> 'reimbursement' AND fm.date BETWEEN ${from} AND ${to}
+            AND ${row ? sql`fm.fund_category_id = ${Number(row)}` : sql`true`}
+          ORDER BY fm.date, fm.id`),
+      );
     } else if (section === 'savings') {
       push(
         await db.execute(sql`
