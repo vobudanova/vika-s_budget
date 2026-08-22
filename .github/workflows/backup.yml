@@ -12,11 +12,17 @@ jobs:
     timeout-minutes: 15
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
     steps:
-      - name: Проверка секрета
+      - name: Проверка секретов
         run: |
           if [ -z "$DATABASE_URL" ]; then
             echo "::error::Секрет DATABASE_URL не задан — бэкап невозможен"
+            exit 1
+          fi
+          # репозиторий публичный: без шифрования дамп доступен любому — не выгружаем
+          if [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::Секрет BACKUP_PASSPHRASE не задан — незашифрованный бэкап в публичный репозиторий не выгружаем"
             exit 1
           fi
           case "$DATABASE_URL" in
@@ -37,21 +43,26 @@ jobs:
           sudo apt-get install -y -qq postgresql-client-18
           /usr/lib/postgresql/18/bin/pg_dump --version
 
-      - name: pg_dump
+      - name: pg_dump + шифрование
         run: |
           # дамп идёт через прямое подключение: pooled-endpoint (pgbouncer) для pg_dump ненадёжен
           DIRECT_URL="${DATABASE_URL/-pooler/}"
           STAMP="$(date -u +%F)"
           /usr/lib/postgresql/18/bin/pg_dump "$DIRECT_URL" --no-owner --no-privileges \
             | gzip > "vika-salmon-${STAMP}.sql.gz"
-          ls -lah vika-salmon-*.sql.gz
           # пустой дамп — признак проблемы, лучше упасть громко
           test "$(gzip -cd vika-salmon-${STAMP}.sql.gz | wc -c)" -gt 10000
+          # репозиторий публичный — наружу уходит только шифрованный файл
+          gpg --symmetric --batch --cipher-algo AES256 \
+            --passphrase "$BACKUP_PASSPHRASE" \
+            -o "vika-salmon-${STAMP}.sql.gz.gpg" "vika-salmon-${STAMP}.sql.gz"
+          rm "vika-salmon-${STAMP}.sql.gz"
+          ls -lah vika-salmon-*.sql.gz.gpg
 
       - name: Сохранить артефакт (14 дней)
         uses: actions/upload-artifact@v4
         with:
           name: db-backup-${{ github.run_id }}
-          path: vika-salmon-*.sql.gz
+          path: vika-salmon-*.sql.gz.gpg
           retention-days: 14
           if-no-files-found: error
