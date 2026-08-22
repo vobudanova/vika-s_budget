@@ -56,6 +56,23 @@ export default async function IncomePage() {
     sourcesWithData.reduce((s, src) => s + (cells.get(`${src.id}:${i + 1}`) ?? 0), 0),
   );
 
+  // источники группируются по категориям (типам)
+  const SOURCE_TYPE_LABELS: Record<string, string> = {
+    rent: 'Аренда',
+    monthly_payment: 'Ежемесячный платёж',
+    one_off: 'Разовые',
+    interest_cashback: 'Проценты и кэшбек',
+    cash_income: 'Наличные',
+    compensation: 'Компенсации',
+  };
+  const typeGroups = Object.keys(SOURCE_TYPE_LABELS)
+    .map((type) => ({
+      type,
+      label: SOURCE_TYPE_LABELS[type],
+      sources: sourcesWithData.filter((s) => s.type === type),
+    }))
+    .filter((g) => g.sources.length > 0);
+
   const checkingId = ref.accounts.find((a) => a.type === 'checking')?.id ?? null;
   const compensationSource = ref.incomeSources.find((s) => s.type === 'compensation') ?? null;
 
@@ -108,21 +125,47 @@ export default async function IncomePage() {
                   </TableTr>
                 </TableThead>
                 <TableTbody>
-                  {sourcesWithData.map((s) => (
-                    <TableTr key={s.id}>
-                      <TableTd>{s.name}</TableTd>
-                      <TableTd ta="right" className="money" fw={600}>
-                        {fmtMoney(totals.get(s.id) ?? 0)}
-                      </TableTd>
-                      {Array.from({ length: 12 }, (_, i) => (
-                        <TableTd key={i} ta="right" className="money">
-                          {cells.get(`${s.id}:${i + 1}`)
-                            ? fmtMoney(cells.get(`${s.id}:${i + 1}`)!)
-                            : ''}
+                  {typeGroups.map((g) => {
+                    const groupYear = g.sources.reduce((s, src) => s + (totals.get(src.id) ?? 0), 0);
+                    const groupMonth = (m: number) =>
+                      g.sources.reduce((s, src) => s + (cells.get(`${src.id}:${m}`) ?? 0), 0);
+                    return [
+                      <TableTr key={`g-${g.type}`}>
+                        <TableTd>
+                          <Text fw={700} fz={13}>
+                            {g.label}
+                          </Text>
                         </TableTd>
-                      ))}
-                    </TableTr>
-                  ))}
+                        <TableTd ta="right" className="money" fw={700}>
+                          {fmtMoney(groupYear)}
+                        </TableTd>
+                        {Array.from({ length: 12 }, (_, i) => (
+                          <TableTd key={i} ta="right" className="money" fw={700}>
+                            {groupMonth(i + 1) ? fmtMoney(groupMonth(i + 1)) : ''}
+                          </TableTd>
+                        ))}
+                      </TableTr>,
+                      ...g.sources.map((s) => (
+                        <TableTr key={s.id}>
+                          <TableTd>
+                            <Text fz={13} pl={16} c="dark.4">
+                              {s.name}
+                            </Text>
+                          </TableTd>
+                          <TableTd ta="right" className="money" fw={600}>
+                            {fmtMoney(totals.get(s.id) ?? 0)}
+                          </TableTd>
+                          {Array.from({ length: 12 }, (_, i) => (
+                            <TableTd key={i} ta="right" className="money">
+                              {cells.get(`${s.id}:${i + 1}`)
+                                ? fmtMoney(cells.get(`${s.id}:${i + 1}`)!)
+                                : ''}
+                            </TableTd>
+                          ))}
+                        </TableTr>
+                      )),
+                    ];
+                  })}
                   <TableTr style={{ borderTop: '2px solid var(--ink-line)' }}>
                     <TableTd>
                       <Text fw={700} fz="xs">

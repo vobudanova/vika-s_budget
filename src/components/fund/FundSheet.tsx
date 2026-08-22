@@ -5,7 +5,7 @@ import { Card, ScrollArea, Table, Text, em } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import type { FundCategoryStatus } from '@/queries/fund';
 import { CellBreakdownDrawer, type CellQuery } from '@/components/sheet/CellBreakdown';
-import { RU_MONTHS, RU_MONTHS_GEN } from '@/lib/dates';
+import { RU_MONTHS } from '@/lib/dates';
 import { fmtNumber, round2 } from '@/lib/money';
 
 const FS = 15;
@@ -89,7 +89,7 @@ export function FundSheet({ categories, year }: { categories: FundCategoryStatus
     setCell({
       q: { from, to, section: side === 'in' ? 'fund-in' : 'ks', row: catId ? String(catId) : null },
       title: `${name} · ${side === 'in' ? 'отложено' : 'израсходовано'} · ${
-        m === 'total' ? year : RU_MONTHS_GEN[m - 1]
+        m === 'total' ? year : RU_MONTHS[m - 1].toLowerCase()
       }`,
     });
   };
