@@ -68,10 +68,12 @@ body {
   }
 }
 
-/* Горизонтальный скролл только внутри собственных контейнеров */
+/* Горизонтальный скролл только внутри собственных контейнеров.
+   clip, а не hidden: hidden делает body скролл-контейнером и ломает
+   position: sticky у вложенных элементов */
 html,
 body {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Standalone-режим (добавлено на экран «Домой»): отступы под системные зоны iPhone.
@@ -101,5 +103,45 @@ body {
   }
   .mantine-Drawer-header {
     padding-top: max(16px, env(safe-area-inset-top, 0px));
+  }
+}
+
+/* Sticky-заголовки групп и шапок таблиц (КАП, Амортизация).
+   Заголовок группы («Одежда») живёт вне скролл-контейнера и липнет всегда —
+   следующая группа выталкивает предыдущую (sticky ограничен своей карточкой).
+   Шапка таблицы (thead) объявлена sticky всегда, но внутри overflow-x: auto
+   не липнет физически — работает только на широких экранах, где скролл
+   отключён (порог у каждой страницы свой, по ширине её таблицы). */
+.group-scroll {
+  overflow-x: auto;
+}
+.group-head {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  /* в покое плашка ложится ровно на верх карточки; боковых рамок у неё нет —
+     их даёт сама карточка (непрерывные линии) */
+  margin: -1px 0 0;
+}
+.group-head-inner {
+  background: #fff;
+  border-top: 1px solid var(--ink-line);
+}
+.group-scroll thead th {
+  position: sticky;
+  top: 47px; /* высота заголовка группы минус 1px перекрытия */
+  z-index: 5;
+  background: #fff;
+  /* нижняя граница рисуется тенью — collapsed-бордеры не едут вместе со sticky */
+  box-shadow: inset 0 -1px 0 var(--ink-line);
+}
+@media (min-width: 1460px) {
+  .cap-page .group-scroll {
+    overflow-x: visible;
+  }
+}
+@media (min-width: 1100px) {
+  .assets-page .group-scroll {
+    overflow-x: visible;
   }
 }

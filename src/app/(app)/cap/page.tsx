@@ -1,7 +1,6 @@
 import {
   Card,
   Group,
-  ScrollArea,
   SimpleGrid,
   Stack,
   Table,
@@ -55,7 +54,7 @@ export default async function CapPage() {
   }
 
   return (
-    <Stack gap="md">
+    <Stack gap="md" className="cap-page">
       <PageHeader
         title="КАП"
         subtitle={fmtMoneyExact(cap.ledgerTotal)}
@@ -129,14 +128,18 @@ export default async function CapPage() {
       )}
 
       {[...byCategory.entries()].map(([cat, goals]) => (
-        <Card key={cat} p={0}>
-          <Group px="md" py="sm" justify="space-between">
-            <Text fw={600}>{cat}</Text>
-            <Text fz="sm" c="dimmed" className="money">
-              {fmtMoneyExact(goals.reduce((s, g) => s + g.contributed, 0))}
-            </Text>
-          </Group>
-          <ScrollArea type="auto" offsetScrollbars>
+        // overflow clip вместо дефолтного hidden карточки: hidden создаёт
+        // скролл-контейнер и не даёт заголовку группы прилипать
+        <Card key={cat} p={0} style={{ overflow: 'clip' }}>
+          <div className="group-head">
+            <Group px="md" h={48} justify="space-between" wrap="nowrap" className="group-head-inner">
+              <Text fw={600}>{cat}</Text>
+              <Text fz="sm" c="dimmed" className="money">
+                {fmtMoneyExact(goals.reduce((s, g) => s + g.contributed, 0))}
+              </Text>
+            </Group>
+          </div>
+          <div className="group-scroll">
             {/* фиксированная раскладка: ширины колонок одинаковы во всех группах,
                 гибкая только «Цель» (забирает остаток) */}
             <Table miw={1200} verticalSpacing={6} horizontalSpacing={12} fz="sm" style={{ tableLayout: 'fixed' }}>
@@ -163,7 +166,7 @@ export default async function CapPage() {
                 ))}
               </TableTbody>
             </Table>
-          </ScrollArea>
+          </div>
         </Card>
       ))}
 

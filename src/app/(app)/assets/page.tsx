@@ -2,7 +2,6 @@ import {
   Badge,
   Card,
   Group,
-  ScrollArea,
   Stack,
   Table,
   TableTbody,
@@ -43,7 +42,7 @@ export default async function AssetsPage() {
   const assetCats = ref.assetCategories.map((c) => ({ id: c.id, name: c.name }));
 
   return (
-    <Stack gap="md">
+    <Stack gap="md" className="assets-page">
       <PageHeader
         title="Амортизация"
         subtitle={
@@ -68,29 +67,34 @@ export default async function AssetsPage() {
       )}
 
       {categories.map((cat) => (
-        <Card key={cat} p={0}>
-          <Group px="md" py="sm" justify="space-between">
-            <Text fw={600}>{cat}</Text>
-            <Money
-              value={active.filter((a) => a.categoryName === cat).reduce((s, a) => s + a.monthlyAmount, 0)}
-              fz="sm"
-              c="dimmed"
-            />
-          </Group>
+        // overflow clip вместо дефолтного hidden карточки — иначе sticky не работает
+        <Card key={cat} p={0} style={{ overflow: 'clip' }}>
+          <div className="group-head">
+            <Group px="md" h={48} justify="space-between" wrap="nowrap" className="group-head-inner">
+              <Text fw={600}>{cat}</Text>
+              <Money
+                value={active.filter((a) => a.categoryName === cat).reduce((s, a) => s + a.monthlyAmount, 0)}
+                fz="sm"
+                c="dimmed"
+              />
+            </Group>
+          </div>
           <AssetTable rows={active.filter((a) => a.categoryName === cat)} accounts={moneyAccounts} assetCategories={assetCats} />
         </Card>
       ))}
 
       {finished.length > 0 && (
-        <Card p={0}>
-          <Group px="md" py="sm">
-            <Text fw={600} c="dimmed">
-              Завершено
-            </Text>
-            <Badge variant="light" color="gray">
-              {finished.length}
-            </Badge>
-          </Group>
+        <Card p={0} style={{ overflow: 'clip' }}>
+          <div className="group-head">
+            <Group px="md" h={48} gap="sm" wrap="nowrap" className="group-head-inner">
+              <Text fw={600} c="dimmed">
+                Завершено
+              </Text>
+              <Badge variant="light" color="gray">
+                {finished.length}
+              </Badge>
+            </Group>
+          </div>
           <AssetTable rows={finished} accounts={moneyAccounts} assetCategories={assetCats} finished />
         </Card>
       )}
@@ -111,7 +115,7 @@ function AssetTable({
   finished?: boolean;
 }) {
   return (
-    <ScrollArea type="auto" offsetScrollbars>
+    <div className="group-scroll">
       <Table miw={820} verticalSpacing={9} horizontalSpacing={12} fz="sm">
         <TableThead>
           <TableTr>
@@ -194,7 +198,7 @@ function AssetTable({
           ))}
         </TableTbody>
       </Table>
-    </ScrollArea>
+    </div>
   );
 }
 
