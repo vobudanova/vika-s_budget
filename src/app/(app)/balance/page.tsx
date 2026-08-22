@@ -5,6 +5,7 @@ import { getAccountBalances, splitBalances, type AccountBalance } from '@/querie
 import { Money } from '@/components/Money';
 import { CardLabel } from '@/components/CardLabel';
 import { AccountsBoard } from '@/components/accounts/AccountsBoard';
+import { FactButton } from '@/components/balance/FactButton';
 import { InterestDeposits, Obligations } from '@/components/accounts/DepositsAndDebts';
 import { fmtMoney, toNum } from '@/lib/money';
 import { dateTitleFull, todayISO } from '@/lib/dates';
@@ -108,16 +109,19 @@ function BalanceGroup({ title, accounts }: { title: string; accounts: AccountBal
         </Group>
         <Stack gap={6}>
           {accounts.map((a) => (
-            <Group key={a.accountId} justify="space-between" wrap="nowrap">
+            <Group key={a.accountId} justify="space-between" wrap="nowrap" gap="xs">
               <Text fz="sm" c={a.balance === 0 ? 'dimmed' : undefined} truncate>
                 {a.name}
               </Text>
-              <Money
-                value={a.balance}
-                currency={a.currency}
-                fz="sm"
-                c={a.balance === 0 ? 'dimmed' : a.balance < 0 ? 'red.8' : undefined}
-              />
+              <Group gap={2} wrap="nowrap">
+                <Money
+                  value={a.balance}
+                  currency={a.currency}
+                  fz="sm"
+                  c={a.balance === 0 ? 'dimmed' : a.balance < 0 ? 'red.8' : undefined}
+                />
+                <FactButton accountId={a.accountId} name={a.name} current={a.balance} />
+              </Group>
             </Group>
           ))}
         </Stack>

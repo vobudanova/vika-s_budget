@@ -9,12 +9,10 @@ import {
   IconWallet,
 } from '@tabler/icons-react';
 import { todayISO, ymOf, dateTitle, RU_MONTHS } from '@/lib/dates';
-import { fmtMoney } from '@/lib/money';
 import {
   getAccountBalances,
   getDayTransactions,
   getReference,
-  splitBalances,
 } from '@/queries/core';
 import { isFilledDay } from '@/actions/misc';
 import { Money } from '@/components/Money';
@@ -35,7 +33,10 @@ export default async function DashboardPage() {
     getReference(today),
     isFilledDay(today),
   ]);
-  const { totalRub, totalUsd } = splitBalances(balances);
+  // на дашборде — только дебетовый счёт, без общего баланса
+  const checkingBalance = balances
+    .filter((b) => b.type === 'checking')
+    .reduce((s, b) => s + b.balance, 0);
   const cats = categorySelectData(ref.groups, ref.categories);
   const defaultAccount = ref.accounts.find((a) => a.type === 'checking') ?? null;
   const monthName = RU_MONTHS[Number(ym.slice(5, 7)) - 1];
@@ -68,14 +69,9 @@ export default async function DashboardPage() {
         </Box>
       </Box>
 
-      {/* Баланс — без подложки, по центру */}
+      {/* Дебетовый счёт — без подложки, по центру */}
       <Stack gap={4} align="center" ta="center">
-        <Money value={Math.round(totalRub)} fz={{ base: 28, xs: 36 }} fw={600} lts="-0.02em" />
-        {totalUsd > 0 && (
-          <Text c="dimmed" fz="sm" className="money">
-            + {fmtMoney(totalUsd, 'USD')}
-          </Text>
-        )}
+        <Money value={Math.round(checkingBalance)} fz={{ base: 28, xs: 36 }} fw={600} lts="-0.02em" />
       </Stack>
 
       {/* Навигация: квадратные плитки — 2 в ряд на мобильном, 3 на широком.

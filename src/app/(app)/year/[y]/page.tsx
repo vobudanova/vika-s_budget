@@ -33,7 +33,7 @@ export default async function YearPage({ params }: { params: Promise<{ y: string
           </Group>
         }
       />
-      <YearView data={data} />
+      <YearView data={data} year={Number(y)} />
       <WipeButton scope={{ scope: 'year', year: y }} label={`все операции ${y} года`} />
     </Stack>
   );

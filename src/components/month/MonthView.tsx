@@ -25,7 +25,8 @@ export function MonthView({
   const columns: SheetColumn[] = Array.from({ length: sheet.daysCount }, (_, i) => {
     const d = i + 1;
     const iso = `${ym}-${String(d).padStart(2, '0')}`;
-    return { key: d, label: String(d), href: `/day/${iso}`, highlight: filled.has(d) || iso === today };
+    // подсветка — только у дней, отмеченных заполненными (снятие галочки гасит колонку)
+    return { key: d, label: String(d), href: `/day/${iso}`, highlight: filled.has(d) };
   });
 
   return (

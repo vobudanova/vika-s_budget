@@ -254,3 +254,26 @@ export async function listAllCategories() {
   ]);
   return { groups, cats };
 }
+
+/** Справочники для шторки редактирования операции: категории и активные счета. */
+export async function listEditRefs() {
+  const [cats, accs] = await Promise.all([
+    db.execute(sql`
+      SELECT c.id, c.name, g.name AS group_name
+      FROM categories c JOIN category_groups g ON g.id = c.group_id
+      WHERE c.row_type = 'expense' AND c.active_to IS NULL AND NOT c.pending_delete
+      ORDER BY g.sort_order, c.sort_order, c.name
+    `),
+    db.execute(sql`
+      SELECT id, name FROM accounts WHERE is_active ORDER BY sort_order, name
+    `),
+  ]);
+  return {
+    categories: (cats.rows as any[]).map((c) => ({
+      id: Number(c.id),
+      name: c.name as string,
+      groupName: c.group_name as string,
+    })),
+    accounts: (accs.rows as any[]).map((a) => ({ id: Number(a.id), name: a.name as string })),
+  };
+}

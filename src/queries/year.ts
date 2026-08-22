@@ -17,6 +17,8 @@ export type YearSheet = {
   savingsYear: number;
   ksReimbursedYear: number;
   coveredYear: number;
+  /** счётчик отмеченных «день заполнен» по месяцам (индекс 1..12) */
+  filledMonths: number[];
   pendingWarnings: { name: string; groupName: string; months: string[]; total: number }[];
 };
 
@@ -27,7 +29,7 @@ export async function getYearSheet(year: string): Promise<YearSheet> {
   const to = `${year}-12-31`;
   const ref = await getReference();
 
-  const [expensesRes, purchasesRes, accrualsRes, transfersRes, ksRes, savingsByRes, incomeRes, savingsRes, extraRes, pendingRes] =
+  const [expensesRes, purchasesRes, accrualsRes, transfersRes, ksRes, savingsByRes, incomeRes, savingsRes, extraRes, pendingRes, filledRes] =
     await Promise.all([
       db.execute(sql`
         SELECT category_id, EXTRACT(MONTH FROM date)::int AS d, sum(amount) AS s
@@ -79,6 +81,12 @@ export async function getYearSheet(year: string): Promise<YearSheet> {
         LEFT JOIN transactions t ON t.category_id = c.id
         WHERE c.pending_delete
         GROUP BY c.id, c.name, cg.name, 4
+      `),
+      db.execute(sql`
+        SELECT EXTRACT(MONTH FROM date)::int AS m, count(*) AS c
+        FROM filled_days
+        WHERE date >= ${from}::date AND date <= ${to}::date
+        GROUP BY 1
       `),
     ]);
 
@@ -220,6 +228,12 @@ export async function getYearSheet(year: string): Promise<YearSheet> {
   for (const r of savingsRes.rows as Array<{ d: number; s: string }>) savingsTotals[r.d] = toNum(r.s);
   const extra = (extraRes.rows as Array<{ ks: string; covered: string }>)[0];
 
+  // месяц «закрыт», когда галочка «день заполнен» стоит на каждом его дне
+  const filledMonths = zeros();
+  for (const r of filledRes.rows as Array<{ m: number; c: string }>) {
+    filledMonths[Number(r.m)] = Number(r.c);
+  }
+
   const pendingMap = new Map<number, { name: string; groupName: string; months: string[]; total: number }>();
   for (const r of pendingRes.rows as Array<{ id: number; name: string; group_name: string; ym: string | null; s: string | null }>) {
     const id = Number(r.id);
@@ -243,6 +257,7 @@ export async function getYearSheet(year: string): Promise<YearSheet> {
     savingsTotals,
     savingsYear: round2(savingsTotals.reduce((s, v) => s + v, 0)),
     ksReimbursedYear: toNum(extra?.ks),
+    filledMonths,
     coveredYear: toNum(extra?.covered),
     pendingWarnings: [...pendingMap.values()],
   };

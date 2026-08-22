@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# локальные проверки бэкапов — дампы не коммитим
+backup-test/

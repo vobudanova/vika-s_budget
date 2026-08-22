@@ -5,6 +5,7 @@ import {
   ActionIcon,
   Button,
   Group,
+  Select,
   Stack,
   Text,
   TextInput,
@@ -14,6 +15,8 @@ import { notifications } from '@mantine/notifications';
 import { FormDrawer } from '@/components/FormDrawer';
 import { IconPencil, IconX } from '@tabler/icons-react';
 import { deleteTransaction, updateTransaction } from '@/actions/transactions';
+import { listEditRefs } from '@/actions/reference';
+import { confirmDanger } from '@/lib/confirm';
 import type { TxRow } from '@/queries/core';
 import { txLabel, txSign } from './tx-helpers';
 import { Money } from './Money';
@@ -112,11 +115,19 @@ function TxLine({ t, showDate, onEdit }: { t: TxRow; showDate: boolean; onEdit: 
   );
 }
 
+type EditRefs = {
+  categories: { id: number; name: string; groupName: string }[];
+  accounts: { id: number; name: string }[];
+};
+
 function EditModal({ t, onClose }: { t: TxRow | null; onClose: () => void }) {
   const [pending, startTransition] = useTransition();
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [date, setDate] = useState('');
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [accountId, setAccountId] = useState<string | null>(null);
+  const [refs, setRefs] = useState<EditRefs | null>(null);
   const [opened, setOpened] = useState(false);
 
   // Синхронизация при открытии; выражение показывается как введено («300+500-200»)
@@ -124,14 +135,24 @@ function EditModal({ t, onClose }: { t: TxRow | null; onClose: () => void }) {
     setAmount(t.amountExpr ?? fmtMoney(Math.abs(t.amount)).replace(/[  ₽]/g, ''));
     setNote(t.note ?? '');
     setDate(t.date);
+    setCategoryId(t.categoryId ? String(t.categoryId) : null);
+    setAccountId(t.accountId ? String(t.accountId) : null);
     setOpened(true);
+    if (!refs) listEditRefs().then(setRefs);
   }
   if (!t && opened) setOpened(false);
 
   const save = () =>
     startTransition(async () => {
       if (!t) return;
-      const res = await updateTransaction({ id: t.id, amount, note, date });
+      const res = await updateTransaction({
+        id: t.id,
+        amount,
+        note,
+        date,
+        ...(t.kind === 'expense' && categoryId ? { categoryId: Number(categoryId) } : {}),
+        ...(accountId ? { accountId: Number(accountId) } : {}),
+      });
       if (!res.ok) {
         notifications.show({ color: 'red', message: res.error });
       } else {
@@ -139,9 +160,53 @@ function EditModal({ t, onClose }: { t: TxRow | null; onClose: () => void }) {
       }
     });
 
+  const remove = () => {
+    if (!t) return;
+    confirmDanger({
+      title: 'Удалить операцию',
+      message: `Операция на ${fmtMoney(Math.abs(t.amount))} будет удалена.`,
+      onConfirm: () =>
+        startTransition(async () => {
+          const res = await deleteTransaction(t.id);
+          if (!res.ok) {
+            notifications.show({ color: 'red', message: res.error });
+          } else {
+            onClose();
+          }
+        }),
+    });
+  };
+
+  const categoryData = (refs?.categories ?? []).reduce<
+    { group: string; items: { value: string; label: string }[] }[]
+  >((acc, c) => {
+    const g = acc.find((x) => x.group === c.groupName);
+    const item = { value: String(c.id), label: c.name };
+    if (g) g.items.push(item);
+    else acc.push({ group: c.groupName, items: [item] });
+    return acc;
+  }, []);
+
   return (
     <FormDrawer opened={!!t} onClose={onClose} title="Изменить операцию" desktopSize="sm">
       <Stack gap="sm">
+        {t?.kind === 'expense' && (
+          <Select
+            label="Категория"
+            data={categoryData}
+            value={categoryId}
+            onChange={setCategoryId}
+            searchable
+            placeholder={refs ? 'Выберите категорию' : 'Загрузка…'}
+          />
+        )}
+        <Select
+          label="Счёт"
+          data={(refs?.accounts ?? []).map((a) => ({ value: String(a.id), label: a.name }))}
+          value={accountId}
+          onChange={setAccountId}
+          placeholder={refs ? 'Выберите счёт' : 'Загрузка…'}
+        />
         <TextInput
           label="Дата"
           value={date}
@@ -155,13 +220,18 @@ function EditModal({ t, onClose }: { t: TxRow | null; onClose: () => void }) {
           className="money"
         />
         <TextInput label="Заметка" value={note} onChange={(e) => setNote(e.currentTarget.value)} />
-        <Group justify="flex-end">
-          <Button variant="default" onClick={onClose}>
-            Отмена
+        <Group justify="space-between">
+          <Button variant="subtle" color="red" onClick={remove}>
+            Удалить
           </Button>
-          <Button onClick={save} loading={pending}>
-            Сохранить
-          </Button>
+          <Group>
+            <Button variant="default" onClick={onClose}>
+              Отмена
+            </Button>
+            <Button onClick={save} loading={pending}>
+              Сохранить
+            </Button>
+          </Group>
         </Group>
       </Stack>
     </FormDrawer>

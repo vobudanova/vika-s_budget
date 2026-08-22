@@ -108,17 +108,33 @@ export async function createPurchase(raw: z.input<typeof purchaseInput>): Promis
       .where(eq(assetCategories.id, input.assetCategoryId));
     if (!assetCat) return { ok: false, error: 'Категория актива не найдена' };
 
-    // категория «Покупки → <категория актива>» для фактического метода
-    const [purchGroup] = await db
+    // категория «Покупки → <категория актива>» для фактического метода;
+    // без неё покупка выпадала бы из «Фактических» — досоздаём при необходимости
+    let [purchGroup] = await db
       .select()
       .from(categoryGroups)
       .where(eq(categoryGroups.name, 'Покупки'));
-    const [purchCategory] = purchGroup
-      ? await db
-          .select()
-          .from(categories)
-          .where(and(eq(categories.groupId, purchGroup.id), eq(categories.name, assetCat.name)))
-      : [];
+    if (!purchGroup) {
+      [purchGroup] = await db
+        .insert(categoryGroups)
+        .values({ name: 'Покупки', sortOrder: 60 })
+        .returning();
+    }
+    let [purchCategory] = await db
+      .select()
+      .from(categories)
+      .where(and(eq(categories.groupId, purchGroup.id), eq(categories.name, assetCat.name)));
+    if (!purchCategory) {
+      [purchCategory] = await db
+        .insert(categories)
+        .values({
+          groupId: purchGroup.id,
+          name: assetCat.name,
+          sortOrder: 99,
+          activeFrom: input.date,
+        })
+        .returning();
+    }
 
     const rate = await getInflationRate();
 

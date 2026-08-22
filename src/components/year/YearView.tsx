@@ -10,13 +10,18 @@ import { deleteCategoryHard } from '@/actions/reference';
 import { SheetTable, type SheetColumn } from '@/components/sheet/SheetTable';
 import { confirmDanger } from '@/lib/confirm';
 
-export function YearView({ data }: { data: YearSheet }) {
+export function YearView({ data, year }: { data: YearSheet; year: number }) {
   const [, startTransition] = useTransition();
 
-  const columns: SheetColumn[] = Array.from({ length: 12 }, (_, i) => ({
-    key: i + 1,
-    label: RU_MONTHS[i].slice(0, 3),
-  }));
+  const columns: SheetColumn[] = Array.from({ length: 12 }, (_, i) => {
+    const daysInMonth = new Date(year, i + 1, 0).getDate();
+    return {
+      key: i + 1,
+      label: RU_MONTHS[i].slice(0, 3),
+      // месяц подсвечен, когда «день заполнен» отмечен на каждом его дне
+      highlight: data.filledMonths[i + 1] >= daysInMonth,
+    };
+  });
 
   // Корзинка окончательного удаления — только у обнулённых помеченных категорий
   const sections = data.sections.map((s) => ({
