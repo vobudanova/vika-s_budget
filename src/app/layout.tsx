@@ -38,6 +38,8 @@ export const viewport: Viewport = {
   // standalone: без pinch-to-zoom (утилитарный инструмент)
   maximumScale: 1,
   userScalable: false,
+  // без cover iOS отдаёт env(safe-area-inset-*) = 0 — отступы не работают
+  viewportFit: 'cover',
   themeColor: '#faf7f5',
 };
 
