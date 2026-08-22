@@ -23,6 +23,14 @@ const COLLAPSIBLE = new Set(['purchases', 'amortization', 'trips', 'transfers', 
 
 export type SheetColumn = { key: number; label: string; href?: string; highlight?: boolean };
 
+/** Клик по числу: строка листа + колонка ('total' — столбец Σ). */
+export type CellClick = {
+  section: string;
+  row: string | null;
+  col: number | 'total';
+  rowTitle: string;
+};
+
 const FS = 15;
 const CELL_PY = 6; // строки «Начисленные»/«Фактические»
 const ROW_PY = 3; // категории и подкатегории (−20% высоты)
@@ -43,6 +51,7 @@ export function SheetTable({
   bottomRows,
   minWidth = 900,
   firstColWidth = 230,
+  onCell,
 }: {
   columns: SheetColumn[];
   sections: SheetSection[];
@@ -52,10 +61,13 @@ export function SheetTable({
     values: number[];
     muted?: boolean;
     totalBg?: string;
+    /** ключ для раскладки ячейки (top-accrued / top-actual) */
+    cellKey?: string;
   }[];
   bottomRows?: React.ReactNode;
   minWidth?: number;
   firstColWidth?: number;
+  onCell?: (q: CellClick) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(sections.filter((s) => COLLAPSIBLE.has(s.key)).map((s) => [s.key, true])),
@@ -167,6 +179,11 @@ export function SheetTable({
                     ta="center"
                     bg={r.totalBg}
                     thickBottom={last}
+                    onClick={
+                      onCell && r.cellKey
+                        ? () => onCell({ section: r.cellKey!, row: null, col: 'total', rowTitle: r.label })
+                        : undefined
+                    }
                   />
                   {columns.map((c) => (
                     <NumCell
@@ -176,6 +193,11 @@ export function SheetTable({
                       muted={r.muted}
                       ta="center"
                       thickBottom={last}
+                      onClick={
+                        onCell && r.cellKey
+                          ? () => onCell({ section: r.cellKey!, row: null, col: c.key, rowTitle: r.label })
+                          : undefined
+                      }
                     />
                   ))}
                 </Table.Tr>
@@ -193,6 +215,7 @@ export function SheetTable({
                 collapsible={COLLAPSIBLE.has(s.key)}
                 collapsed={!!collapsed[s.key]}
                 onToggle={() => setCollapsed((p) => ({ ...p, [s.key]: !p[s.key] }))}
+                onCell={onCell}
               />
             ))}
             {bottomRows}
@@ -218,6 +241,7 @@ function Section({
   collapsible,
   collapsed,
   onToggle,
+  onCell,
 }: {
   s: SheetSection;
   columns: SheetColumn[];
@@ -227,6 +251,7 @@ function Section({
   collapsible: boolean;
   collapsed: boolean;
   onToggle: () => void;
+  onCell?: (q: CellClick) => void;
 }) {
   const rowPad = { paddingTop: ROW_PY, paddingBottom: ROW_PY };
   return (
@@ -258,9 +283,21 @@ function Section({
             )}
           </FirstCellBox>
         </Table.Td>
-        <NumCell v={s.total} strong ta="center" py={ROW_PY} />
+        <NumCell
+          v={s.total}
+          strong
+          ta="center"
+          py={ROW_PY}
+          onClick={onCell ? () => onCell({ section: s.key, row: null, col: 'total', rowTitle: s.title }) : undefined}
+        />
         {columns.map((c) => (
-          <NumCell key={c.key} v={s.dayTotals[c.key]} strong py={ROW_PY} />
+          <NumCell
+            key={c.key}
+            v={s.dayTotals[c.key]}
+            strong
+            py={ROW_PY}
+            onClick={onCell ? () => onCell({ section: s.key, row: null, col: c.key, rowTitle: s.title }) : undefined}
+          />
         ))}
       </Table.Tr>
       {!collapsed &&
@@ -288,9 +325,20 @@ function Section({
                 </Group>
               </FirstCellBox>
             </Table.Td>
-            <NumCell v={r.total} mutedTotal ta="center" py={ROW_PY} />
+            <NumCell
+              v={r.total}
+              mutedTotal
+              ta="center"
+              py={ROW_PY}
+              onClick={onCell ? () => onCell({ section: s.key, row: r.key, col: 'total', rowTitle: r.name }) : undefined}
+            />
             {columns.map((c) => (
-              <NumCell key={c.key} v={r.days[c.key]} py={ROW_PY} />
+              <NumCell
+                key={c.key}
+                v={r.days[c.key]}
+                py={ROW_PY}
+                onClick={onCell ? () => onCell({ section: s.key, row: r.key, col: c.key, rowTitle: r.name }) : undefined}
+              />
             ))}
           </Table.Tr>
         ))}
@@ -308,6 +356,7 @@ export function NumCell({
   py,
   bg,
   thickBottom,
+  onClick,
 }: {
   v: number;
   strong?: boolean;
@@ -319,6 +368,8 @@ export function NumCell({
   py?: number;
   bg?: string;
   thickBottom?: boolean;
+  /** раскладка ячейки по клику */
+  onClick?: () => void;
 }) {
   const isZero = Math.abs(v) < 0.005;
   const color = diff
@@ -340,9 +391,11 @@ export function NumCell({
       className="money"
       fw={strong || diff ? 700 : undefined}
       c={color}
+      onClick={onClick}
       style={{
         ...(py !== undefined ? { paddingTop: py, paddingBottom: py } : null),
         ...(bg ? { backgroundColor: bg } : null),
+        ...(onClick ? { cursor: 'pointer' } : null),
         // линия фоном, как в первой колонке — иначе высота стыков не совпадает
         ...(thickBottom
           ? {

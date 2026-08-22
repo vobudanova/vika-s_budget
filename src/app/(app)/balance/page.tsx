@@ -6,6 +6,7 @@ import { Money } from '@/components/Money';
 import { CardLabel } from '@/components/CardLabel';
 import { AccountsBoard } from '@/components/accounts/AccountsBoard';
 import { FactButton } from '@/components/balance/FactButton';
+import { BalanceBreakdownButton } from '@/components/balance/BalanceBreakdown';
 import { InterestDeposits, Obligations } from '@/components/accounts/DepositsAndDebts';
 import { fmtMoney, toNum } from '@/lib/money';
 import { dateTitleFull, todayISO } from '@/lib/dates';
@@ -120,6 +121,7 @@ function BalanceGroup({ title, accounts }: { title: string; accounts: AccountBal
                   fz="sm"
                   c={a.balance === 0 ? 'dimmed' : a.balance < 0 ? 'red.8' : undefined}
                 />
+                <BalanceBreakdownButton accountId={a.accountId} name={a.name} currency={a.currency} />
                 <FactButton accountId={a.accountId} name={a.name} current={a.balance} />
               </Group>
             </Group>

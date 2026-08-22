@@ -12,6 +12,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { saveSnapshot } from '@/actions/misc';
+import { BalanceBreakdownButton } from '@/components/balance/BalanceBreakdown';
 import type { AccountBalance } from '@/queries/core';
 import { Money } from '@/components/Money';
 import { fmtMoney, parseAmountExpr, round2 } from '@/lib/money';
@@ -73,7 +74,10 @@ function AccountRow({ b }: { b: AccountBalance }) {
         </Text>
       </Table.Td>
       <Table.Td ta="right">
-        <Money value={b.balance} currency={b.currency} fz="sm" />
+        <Group gap={2} wrap="nowrap" justify="flex-end">
+          <Money value={b.balance} currency={b.currency} fz="sm" />
+          <BalanceBreakdownButton accountId={b.accountId} name={b.name} currency={b.currency} />
+        </Group>
       </Table.Td>
       <Table.Td>
         <Stack gap={2}>

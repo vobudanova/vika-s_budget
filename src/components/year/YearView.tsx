@@ -1,17 +1,35 @@
 'use client';
 
-import { useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { Alert, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import type { YearSheet } from '@/queries/year';
 import { RU_MONTHS } from '@/lib/dates';
 import { fmtMoney } from '@/lib/money';
 import { deleteCategoryHard } from '@/actions/reference';
-import { SheetTable, type SheetColumn } from '@/components/sheet/SheetTable';
+import { SheetTable, type CellClick, type SheetColumn } from '@/components/sheet/SheetTable';
+import { CellBreakdownDrawer, type CellQuery } from '@/components/sheet/CellBreakdown';
 import { confirmDanger } from '@/lib/confirm';
 
 export function YearView({ data, year }: { data: YearSheet; year: number }) {
   const [, startTransition] = useTransition();
+  const [cell, setCell] = useState<{ q: CellQuery; title: string } | null>(null);
+
+  const onCell = ({ section, row, col, rowTitle }: CellClick) => {
+    const q: CellQuery =
+      col === 'total'
+        ? { from: `${year}-01-01`, to: `${year}-12-31`, section, row }
+        : {
+            from: `${year}-${String(col).padStart(2, '0')}-01`,
+            to: `${year}-${String(col).padStart(2, '0')}-${new Date(year, col, 0).getDate()}`,
+            section,
+            row,
+          };
+    setCell({
+      q,
+      title: `${rowTitle} · ${col === 'total' ? year : `${RU_MONTHS[col - 1].toLowerCase()} ${year}`}`,
+    });
+  };
 
   const columns: SheetColumn[] = Array.from({ length: 12 }, (_, i) => {
     const daysInMonth = new Date(year, i + 1, 0).getDate();
@@ -72,11 +90,28 @@ export function YearView({ data, year }: { data: YearSheet; year: number }) {
         columns={columns}
         sections={sections}
         topRows={[
-          { label: 'Начисленные', total: data.accruedTotal, values: data.accruedTotals },
-          { label: 'Фактические', total: data.actualTotal, values: data.actualTotals, muted: true },
+          {
+            label: 'Начисленные',
+            total: data.accruedTotal,
+            values: data.accruedTotals,
+            cellKey: 'top-accrued',
+          },
+          {
+            label: 'Фактические',
+            total: data.actualTotal,
+            values: data.actualTotals,
+            muted: true,
+            cellKey: 'top-actual',
+          },
         ]}
         minWidth={1180}
         firstColWidth={240}
+        onCell={onCell}
+      />
+      <CellBreakdownDrawer
+        query={cell?.q ?? null}
+        title={cell?.title ?? ''}
+        onClose={() => setCell(null)}
       />
     </Stack>
   );

@@ -5,7 +5,9 @@ import { Alert, Card, Group, SegmentedControl, Stack, Text } from '@mantine/core
 import type { MonthSheet } from '@/queries/month';
 import type { TxRow } from '@/queries/core';
 import { TxList } from '@/components/TxList';
-import { SheetTable, type SheetColumn } from '@/components/sheet/SheetTable';
+import { SheetTable, type CellClick, type SheetColumn } from '@/components/sheet/SheetTable';
+import { CellBreakdownDrawer, type CellQuery } from '@/components/sheet/CellBreakdown';
+import { RU_MONTHS, RU_MONTHS_GEN } from '@/lib/dates';
 import { fmtMoney } from '@/lib/money';
 
 export function MonthView({
@@ -20,7 +22,25 @@ export function MonthView({
   today: string;
 }) {
   const [mode, setMode] = useState<'matrix' | 'list'>('matrix');
+  const [cell, setCell] = useState<{ q: CellQuery; title: string } | null>(null);
   const filled = new Set(sheet.filledDays);
+  const monthGen = RU_MONTHS_GEN[Number(ym.slice(5, 7)) - 1];
+
+  const onCell = ({ section, row, col, rowTitle }: CellClick) => {
+    const iso = (d: number) => `${ym}-${String(d).padStart(2, '0')}`;
+    const q: CellQuery =
+      col === 'total'
+        ? { from: iso(1), to: iso(sheet.daysCount), section, row }
+        : { from: iso(col), to: iso(col), section, row };
+    setCell({
+      q,
+      title: `${rowTitle} · ${
+        col === 'total'
+          ? `за ${RU_MONTHS[Number(ym.slice(5, 7)) - 1].toLowerCase()}`
+          : `${col} ${monthGen}`
+      }`,
+    });
+  };
 
   const columns: SheetColumn[] = Array.from({ length: sheet.daysCount }, (_, i) => {
     const d = i + 1;
@@ -66,15 +86,28 @@ export function MonthView({
               total: sheet.accruedTotal,
               values: sheet.accruedTotals,
               totalBg: 'var(--mantine-color-ink-0)',
+              cellKey: 'top-accrued',
             },
-            { label: 'Фактические', total: sheet.actualTotal, values: sheet.actualTotals, muted: true },
+            {
+              label: 'Фактические',
+              total: sheet.actualTotal,
+              values: sheet.actualTotals,
+              muted: true,
+              cellKey: 'top-actual',
+            },
           ]}
+          onCell={onCell}
         />
       ) : (
         <Card>
           <TxList items={txs} showDate emptyText="За месяц операций нет" />
         </Card>
       )}
+      <CellBreakdownDrawer
+        query={cell?.q ?? null}
+        title={cell?.title ?? ''}
+        onClose={() => setCell(null)}
+      />
     </Stack>
   );
 }
