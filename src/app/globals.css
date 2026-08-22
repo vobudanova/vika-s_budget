@@ -81,10 +81,8 @@ body {
     padding-bottom: calc(var(--app-shell-padding, 16px) + env(safe-area-inset-bottom, 0px));
   }
 
-  /* Бургер-меню на мобильном: контент не подлезает под home-индикатор */
-  .mantine-AppShell-navbar {
-    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  }
+  /* отступ бургер-меню под home-индикатор задан инлайном в Shell.tsx:
+     у навбара инлайновый padding, css-правило здесь он бы перебил */
 
   /* Drawer снизу и модальные слои: отступ под home-индикатор и «чёлку» */
   .mantine-Drawer-content[data-position='bottom'] .mantine-Drawer-body {

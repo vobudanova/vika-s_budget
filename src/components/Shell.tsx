@@ -132,7 +132,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar p="sm" withBorder={false}>
+      <AppShell.Navbar
+        withBorder={false}
+        style={{
+          padding: 'var(--mantine-spacing-sm)',
+          // p="sm" даёт инлайновый padding и перебил бы safe-area из globals.css
+          paddingBottom: 'calc(var(--mantine-spacing-sm) + env(safe-area-inset-bottom, 0px))',
+        }}
+      >
         <ScrollArea type="never" style={{ flex: 1 }}>
           <Stack gap="xs">
             {NAV.map((group, i) => (
