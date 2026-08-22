@@ -136,17 +136,18 @@ export default async function CapPage() {
             </Text>
           </Group>
           <ScrollArea type="auto" offsetScrollbars>
-            <Table miw={1080} verticalSpacing={6} horizontalSpacing={12} fz="sm">
+            {/* фиксированная раскладка: ширины колонок одинаковы во всех группах,
+                гибкая только «Цель» (забирает остаток) */}
+            <Table miw={1200} verticalSpacing={6} horizontalSpacing={12} fz="sm" style={{ tableLayout: 'fixed' }}>
               <TableThead>
                 <TableTr>
                   <TableTh ta="center">Цель</TableTh>
-                  <TableTh ta="center">Начало</TableTh>
-                  <TableTh ta="center">КАП/мес</TableTh>
-                  <TableTh ta="center">Отложено</TableTh>
-                  <TableTh ta="center">Остаток</TableTh>
-                  <TableTh ta="center">Цель, ₽</TableTh>
-                  <TableTh ta="center">Статус</TableTh>
-                  <TableTh ta="center">Флажки</TableTh>
+                  <TableTh ta="center" w={100}>КАП/мес</TableTh>
+                  <TableTh ta="center" w={125}>Отложено</TableTh>
+                  <TableTh ta="center" w={125}>Остаток</TableTh>
+                  <TableTh ta="center" w={125}>Цель, ₽</TableTh>
+                  <TableTh ta="center" w={140}>Статус</TableTh>
+                  <TableTh ta="center" w={366}>Флажки</TableTh>
                 </TableTr>
               </TableThead>
               <TableTbody>

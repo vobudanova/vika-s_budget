@@ -71,13 +71,15 @@ export function CapGoalRow({
 
   return (
     <TableTr>
-      <TableTd maw={220}>
+      <TableTd>
         <Text fz="sm" fw={500} truncate>
           {goal.name}
         </Text>
-      </TableTd>
-      <TableTd ta="right" className="money">
-        {goal.startDate ? dateShort(goal.startDate) : '—'}
+        {goal.startDate && (
+          <Text fz="xs" c="dimmed" className="money">
+            с {dateShort(goal.startDate)}
+          </Text>
+        )}
       </TableTd>
       <TableTd ta="right">
         <Money value={goal.monthly} fz="sm" />
@@ -91,28 +93,33 @@ export function CapGoalRow({
       <TableTd ta="right">
         <Money value={goal.target} fz="sm" fw={600} />
       </TableTd>
-      <TableTd style={{ minWidth: 130 }}>
-        <Group gap={6} wrap="nowrap">
-          <Badge variant="light" color={meta.color} size="sm" style={{ flexShrink: 0 }}>
+      <TableTd>
+        {/* узкая колонка: сумма недостачи и кнопка — отдельными строками под бейджем */}
+        <Stack gap={4} align="center">
+          <Badge variant="light" color={meta.color} size="sm">
             {meta.label}
-            {goal.status === 'behind' && ` −${fmtMoney(goal.behindAmount)}`}
           </Badge>
+          {goal.status === 'behind' && (
+            <Text fz="xs" c="orange.8" className="money">
+              −{fmtMoney(Math.round(goal.behindAmount))}
+            </Text>
+          )}
           {(goal.status === 'ready' || goal.status === 'waiting') && (
             <Button size="compact-xs" variant={goal.status === 'ready' ? 'filled' : 'light'} onClick={() => setSpendOpen(true)}>
               Потратить…
             </Button>
           )}
-        </Group>
+        </Stack>
       </TableTd>
       <TableTd>
-        <Group gap={8} wrap="wrap" style={{ rowGap: 4 }}>
+        {/* по правому краю: контент фиксированной ширины → колонки месяцев совпадают между группами */}
+        <Group gap={8} wrap="wrap" justify="flex-end" style={{ rowGap: 4 }}>
           {years.map((year) => (
             <Group key={year} gap={3} wrap="nowrap">
-              {years.length > 1 && (
-                <Text fz={10} c="dimmed" className="money" style={{ flexShrink: 0 }}>
-                  ’{String(year).slice(2)}
-                </Text>
-              )}
+              {/* слот метки года фиксированной ширины — фишки месяцев ровные во всех строках */}
+              <Text fz={10} c="dimmed" className="money" w={18} ta="right" style={{ flexShrink: 0 }}>
+                {years.length > 1 ? `’${String(year).slice(2)}` : ''}
+              </Text>
               {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
                 const ym = `${year}-${String(m).padStart(2, '0')}`;
                 const flag = goal.monthsFlags[ym];
