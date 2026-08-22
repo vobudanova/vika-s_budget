@@ -1,9 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, Center, Group, Stack, Text } from '@mantine/core';
+import { ActionIcon, Button, Center, Group, Stack, Text, Tooltip } from '@mantine/core';
+import { IconX } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
 import { Money } from '@/components/Money';
-import { listFundMovesPage, type FundMoveCursor, type FundMoveRow } from '@/actions/fund';
+import {
+  deleteFundMovement,
+  listFundMovesPage,
+  type FundMoveCursor,
+  type FundMoveRow,
+} from '@/actions/fund';
+import { confirmDanger } from '@/lib/confirm';
 
 const KIND_LABELS: Record<string, string> = {
   plan_topup: 'пополнение по плану',
@@ -27,6 +35,7 @@ export function FundMovesList({
   const [items, setItems] = useState(initial);
   const [cursor, setCursor] = useState(initialCursor);
   const [loading, setLoading] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
   const busyRef = useRef(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -58,6 +67,19 @@ export function FundMovesList({
     return () => io.disconnect();
   }, [cursor, loadMore]);
 
+  const remove = (m: FundMoveRow) =>
+    confirmDanger({
+      title: 'Удалить движение?',
+      message: `${m.date.slice(8, 10)}.${m.date.slice(5, 7)} · ${m.categoryName}`,
+      onConfirm: async () => {
+        setBusyId(m.id);
+        const res = await deleteFundMovement(m.id);
+        setBusyId(null);
+        if (!res.ok) notifications.show({ color: 'red', message: res.error });
+        else setItems((prev) => prev.filter((x) => x.id !== m.id));
+      },
+    });
+
   if (items.length === 0)
     return (
       <Text fz="sm" c="dimmed">
@@ -83,11 +105,20 @@ export function FundMovesList({
               wrap="nowrap"
               py={7}
               gap="xs"
-              style={{ borderBottom: i === items.length - 1 ? 'none' : '1px solid var(--ink-line)' }}
+              style={{
+                borderBottom: i === items.length - 1 ? 'none' : '1px solid var(--ink-line)',
+                opacity: busyId === m.id ? 0.4 : 1,
+              }}
             >
               <Stack gap={0} style={{ minWidth: 0 }}>
                 <Text fz="sm" fw={500}>
                   {m.date.slice(8, 10)}.{m.date.slice(5, 7)} · {m.categoryName}
+                  {m.settle === 'offset_next_topup' && !m.offsetAppliedAt && (
+                    <Text span fz="xs" c="orange.8">
+                      {' '}
+                      · к зачёту
+                    </Text>
+                  )}
                 </Text>
                 {sub && (
                   <Text fz="xs" c="dimmed" style={{ overflowWrap: 'anywhere' }}>
@@ -95,14 +126,20 @@ export function FundMovesList({
                   </Text>
                 )}
               </Stack>
-              <Money
-                value={m.amount}
-                signed
-                fz="sm"
-                fw={500}
-                c={m.amount > 0 ? 'teal.8' : undefined}
-                style={{ flexShrink: 0 }}
-              />
+              <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>
+                <Money value={m.amount} signed fz="sm" fw={500} c={m.amount > 0 ? 'teal.8' : undefined} />
+                <Tooltip label="Удалить">
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    size="sm"
+                    onClick={() => remove(m)}
+                    disabled={busyId !== null}
+                  >
+                    <IconX size={14} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
             </Group>
           );
         })}

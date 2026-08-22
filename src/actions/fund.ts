@@ -280,6 +280,7 @@ export type FundMoveRow = {
   amount: number;
   kind: string;
   settle: string | null;
+  offsetAppliedAt: string | null;
   note: string | null;
   categoryName: string;
   groupName: string | null;
@@ -291,7 +292,7 @@ export async function listFundMovesPage(
 ): Promise<{ items: FundMoveRow[]; nextCursor: FundMoveCursor | null }> {
   const limit = 50;
   const rows = await db.execute(sql`
-    SELECT m.id, m.date, m.amount, m.kind, m.settle, m.note,
+    SELECT m.id, m.date, m.amount, m.kind, m.settle, m.offset_applied_at, m.note,
            fc.name AS category_name, fc.group_name
     FROM fund_movements m
     JOIN fund_categories fc ON fc.id = m.fund_category_id
@@ -305,6 +306,7 @@ export async function listFundMovesPage(
     amount: toNum(r.amount),
     kind: String(r.kind),
     settle: r.settle ?? null,
+    offsetAppliedAt: r.offset_applied_at ? String(r.offset_applied_at) : null,
     note: r.note ?? null,
     categoryName: String(r.category_name),
     groupName: r.group_name ?? null,
