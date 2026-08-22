@@ -60,7 +60,6 @@ export default async function CapPage() {
         subtitle={fmtMoneyExact(cap.ledgerTotal)}
         right={
           <CapPaymentButton
-            ym={currentYm}
             pending={cap.pendingPayment}
             total={cap.pendingTotal}
             accounts={moneyAccounts}

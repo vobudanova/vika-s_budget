@@ -27,7 +27,7 @@ export type CapGoalOverview = {
 
 export type CapOverview = {
   goals: CapGoalOverview[];
-  pendingPayment: { goalId: number; name: string; amount: number }[];
+  pendingPayment: { goalId: number; name: string; amount: number; monthsCount: number }[];
   pendingTotal: number;
   ledgerTotal: number;
   capAccountsBalance: number;
@@ -128,12 +128,20 @@ export async function getCapOverview(): Promise<CapOverview> {
     };
   });
 
-  // Платёж месяца: own_funds без транзакции в текущем месяце
+  // Платёж по флажкам: все own_funds без транзакции, любые месяцы (кроме потраченных целей)
   const pendingPayment = goals
+    .filter((g) => g.status !== 'spent')
     .map((g) => {
-      const flag = g.monthsFlags[currentYm];
-      if (flag && !flag.sent) return { goalId: g.id, name: g.name, amount: flag.amount };
-      return null;
+      let amount = 0;
+      let monthsCount = 0;
+      for (const flag of Object.values(g.monthsFlags)) {
+        if (!flag.sent && flag.amount > 0.005) {
+          amount += flag.amount;
+          monthsCount++;
+        }
+      }
+      if (amount < 0.005) return null;
+      return { goalId: g.id, name: g.name, amount: round2(amount), monthsCount };
     })
     .filter(Boolean) as CapOverview['pendingPayment'];
   const pendingTotal = round2(pendingPayment.reduce((s, p) => s + p.amount, 0));

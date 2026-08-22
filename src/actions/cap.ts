@@ -95,10 +95,9 @@ export async function toggleCapContribution(
   }
 }
 
-// ------------------------------------------- единый платёж месяца на счёт КАП
+// ------------------------------------- единый платёж по флажкам на счёт КАП
 
 const paymentInput = z.object({
-  ym: z.string().refine(isValidYM, 'Некорректный месяц'),
   fromAccountId: z.coerce.number().int().positive('Счёт списания'),
 });
 
@@ -108,34 +107,33 @@ export async function sendCapPayment(raw: z.input<typeof paymentInput>): Promise
     const capAccount = await ksOrCapAccount('savings_cap');
     if (!capAccount) return { ok: false, error: 'Счёт КАП не найден' };
 
+    // все неотправленные взносы, любые месяцы; потраченные цели не трогаем
     const pending = await db
-      .select()
+      .select({ id: capMovements.id, amount: capMovements.amount })
       .from(capMovements)
+      .innerJoin(capGoals, eq(capGoals.id, capMovements.capGoalId))
       .where(
         and(
           eq(capMovements.source, 'own_funds'),
           isNull(capMovements.transactionId),
-          gte(capMovements.date, monthStart(input.ym)),
-          lte(capMovements.date, monthEnd(input.ym)),
+          isNull(capGoals.spentAt),
         ),
       );
     if (pending.length === 0) {
-      return { ok: false, error: 'Нет неотправленных взносов за этот месяц' };
+      return { ok: false, error: 'Нет неотправленных взносов' };
     }
     const total = round2(pending.reduce((s, m) => s + toNum(m.amount), 0));
 
     await db.transaction(async (tx) => {
-      const today = todayISO();
-      const date = ymOf(today) === input.ym ? today : monthEnd(input.ym);
       const [txn] = await tx
         .insert(transactions)
         .values({
-          date,
+          date: todayISO(),
           amount: String(total),
           kind: 'transfer',
           accountId: input.fromAccountId,
           counterAccountId: capAccount.id,
-          note: `Платёж КАП за месяц (${pending.length} взн.)`,
+          note: `Платёж КАП (${pending.length} взн.)`,
         })
         .returning();
       for (const m of pending) {

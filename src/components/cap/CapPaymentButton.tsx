@@ -8,16 +8,14 @@ import { Money } from '@/components/Money';
 import { FormDrawer } from '@/components/FormDrawer';
 import { fmtMoneyExact } from '@/lib/money';
 
-/** Единый платёж месяца по проставленным флажкам — компактная кнопка в шапке. */
+/** Единый платёж по проставленным флажкам (все месяцы) — кнопка в шапке. */
 export function CapPaymentButton({
-  ym,
   pending,
   total,
   accounts,
   defaultAccountId,
 }: {
-  ym: string;
-  pending: { goalId: number; name: string; amount: number }[];
+  pending: { goalId: number; name: string; amount: number; monthsCount: number }[];
   total: number;
   accounts: { id: number; name: string }[];
   defaultAccountId: number | null;
@@ -32,7 +30,7 @@ export function CapPaymentButton({
 
   const send = () =>
     startTransition(async () => {
-      const res = await sendCapPayment({ ym, fromAccountId: Number(accountId) });
+      const res = await sendCapPayment({ fromAccountId: Number(accountId) });
       if (!res.ok) {
         notifications.show({ color: 'red', message: res.error });
       } else {
@@ -46,13 +44,21 @@ export function CapPaymentButton({
       <Button variant="light" onClick={() => setOpened(true)}>
         Отправить платёж · {fmtMoneyExact(total)}
       </Button>
-      <FormDrawer opened={opened} onClose={() => setOpened(false)} title="Платёж месяца по флажкам">
+      <FormDrawer opened={opened} onClose={() => setOpened(false)} title="Платёж по флажкам">
         <Stack gap="sm">
           <Table verticalSpacing={4} fz="sm">
             <Table.Tbody>
               {pending.map((p) => (
                 <Table.Tr key={p.goalId}>
-                  <Table.Td px={0}>{p.name}</Table.Td>
+                  <Table.Td px={0}>
+                    {p.name}
+                    {p.monthsCount > 1 && (
+                      <Text span fz="xs" c="dimmed">
+                        {' '}
+                        · {p.monthsCount} мес
+                      </Text>
+                    )}
+                  </Table.Td>
                   <Table.Td px={0} ta="right">
                     <Money value={p.amount} fz="sm" exact />
                   </Table.Td>
