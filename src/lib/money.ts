@@ -20,6 +20,14 @@ export function fmtMoney(value: number | string, currency: 'RUB' | 'USD' = 'RUB'
   return `${fmtNumber(n, digits)}${THIN}${sign}`;
 }
 
+/** «12 345,00 ₽» — всегда с копейками (страница КАП). */
+export function fmtMoneyExact(value: number | string, currency: 'RUB' | 'USD' = 'RUB'): string {
+  const n = typeof value === 'string' ? Number(value) : value;
+  if (!Number.isFinite(n)) return '—';
+  const sign = currency === 'USD' ? '$' : '₽';
+  return `${fmtNumber(n, 2)}${THIN}${sign}`;
+}
+
 /** «300K», «1,2M» — компактная подпись для осей графиков. */
 export function fmtMoneyShort(value: number | string): string {
   const n = typeof value === 'string' ? Number(value) : value;

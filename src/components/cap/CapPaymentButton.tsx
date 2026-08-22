@@ -6,7 +6,7 @@ import { notifications } from '@mantine/notifications';
 import { sendCapPayment } from '@/actions/cap';
 import { Money } from '@/components/Money';
 import { FormDrawer } from '@/components/FormDrawer';
-import { fmtMoney } from '@/lib/money';
+import { fmtMoneyExact } from '@/lib/money';
 
 /** Единый платёж месяца по проставленным флажкам — компактная кнопка в шапке. */
 export function CapPaymentButton({
@@ -44,7 +44,7 @@ export function CapPaymentButton({
   return (
     <>
       <Button variant="light" onClick={() => setOpened(true)}>
-        Отправить платёж · {fmtMoney(total)}
+        Отправить платёж · {fmtMoneyExact(total)}
       </Button>
       <FormDrawer opened={opened} onClose={() => setOpened(false)} title="Платёж месяца по флажкам">
         <Stack gap="sm">
@@ -54,7 +54,7 @@ export function CapPaymentButton({
                 <Table.Tr key={p.goalId}>
                   <Table.Td px={0}>{p.name}</Table.Td>
                   <Table.Td px={0} ta="right">
-                    <Money value={p.amount} fz="sm" />
+                    <Money value={p.amount} fz="sm" exact />
                   </Table.Td>
                 </Table.Tr>
               ))}
@@ -65,7 +65,7 @@ export function CapPaymentButton({
                   </Text>
                 </Table.Td>
                 <Table.Td px={0} ta="right">
-                  <Money value={total} fw={700} fz="sm" />
+                  <Money value={total} fw={700} fz="sm" exact />
                 </Table.Td>
               </Table.Tr>
             </Table.Tbody>

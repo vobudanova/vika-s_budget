@@ -20,7 +20,7 @@ import { CapPaymentButton } from '@/components/cap/CapPaymentButton';
 import { getCapOverview, type CapGoalOverview } from '@/queries/cap';
 import { getReference } from '@/queries/core';
 import { todayISO, ymOf, ymTitle } from '@/lib/dates';
-import { fmtMoney } from '@/lib/money';
+import { fmtMoneyExact } from '@/lib/money';
 import { WipeButton } from '@/components/WipeButton';
 
 export const metadata = { title: 'КАП' };
@@ -58,7 +58,7 @@ export default async function CapPage() {
     <Stack gap="md">
       <PageHeader
         title="КАП"
-        subtitle={fmtMoney(cap.ledgerTotal)}
+        subtitle={fmtMoneyExact(cap.ledgerTotal)}
         right={
           <CapPaymentButton
             ym={currentYm}
@@ -79,19 +79,19 @@ export default async function CapPage() {
                 <TableTr>
                   <TableTd px={0}>Σ леджера по всем целям</TableTd>
                   <TableTd px={0} ta="right">
-                    <Money value={cap.ledgerTotal} fz="sm" />
+                    <Money value={cap.ledgerTotal} fz="sm" exact />
                   </TableTd>
                 </TableTr>
                 <TableTr>
                   <TableTd px={0}>Счёт КАП</TableTd>
                   <TableTd px={0} ta="right">
-                    <Money value={cap.capAccountsBalance} fz="sm" />
+                    <Money value={cap.capAccountsBalance} fz="sm" exact />
                   </TableTd>
                 </TableTr>
                 <TableTr>
                   <TableTd px={0}>Размещения фонда (доллары, вклады…)</TableTd>
                   <TableTd px={0} ta="right">
-                    <Money value={cap.allocationsNet} fz="sm" />
+                    <Money value={cap.allocationsNet} fz="sm" exact />
                   </TableTd>
                 </TableTr>
                 <TableTr>
@@ -103,6 +103,7 @@ export default async function CapPage() {
                   <TableTd px={0} ta="right">
                     <Money
                       value={cap.reconciliationDiff}
+                      exact
                       fw={700}
                       fz="sm"
                       c={Math.abs(cap.reconciliationDiff) < 0.01 ? 'ink.7' : 'red.8'}
@@ -132,7 +133,7 @@ export default async function CapPage() {
           <Group px="md" py="sm" justify="space-between">
             <Text fw={600}>{cat}</Text>
             <Text fz="sm" c="dimmed" className="money">
-              {fmtMoney(goals.reduce((s, g) => s + g.contributed, 0))}
+              {fmtMoneyExact(goals.reduce((s, g) => s + g.contributed, 0))}
             </Text>
           </Group>
           <ScrollArea type="auto" offsetScrollbars>
@@ -176,7 +177,7 @@ export default async function CapPage() {
                   {g.name}
                 </Text>
                 <Text fz="sm" c="dimmed" className="money">
-                  {fmtMoney(g.target)} · {ymTitle(ymOf(g.spentAt ?? today))}
+                  {fmtMoneyExact(g.target)} · {ymTitle(ymOf(g.spentAt ?? today))}
                 </Text>
               </Group>
             ))}

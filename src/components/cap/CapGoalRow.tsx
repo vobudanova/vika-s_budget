@@ -21,7 +21,7 @@ import { FormDrawer } from '@/components/FormDrawer';
 import { spendCapGoal, toggleCapContribution } from '@/actions/cap';
 import type { CapGoalOverview } from '@/queries/cap';
 import { Money } from '@/components/Money';
-import { fmtMoney, round2 } from '@/lib/money';
+import { fmtMoney, fmtMoneyExact, round2 } from '@/lib/money';
 import { RU_MONTH_SHORT, dateShort, ymOf } from '@/lib/dates';
 import { todayLocalISO } from '@/components/assets/today';
 
@@ -82,16 +82,16 @@ export function CapGoalRow({
         )}
       </TableTd>
       <TableTd ta="right">
-        <Money value={goal.monthly} fz="sm" />
+        <Money value={goal.monthly} fz="sm" exact />
       </TableTd>
       <TableTd ta="right">
-        <Money value={goal.contributed} fz="sm" />
+        <Money value={goal.contributed} fz="sm" exact />
       </TableTd>
       <TableTd ta="right">
-        <Money value={goal.remaining} fz="sm" c={goal.remaining > 0 ? undefined : 'dimmed'} />
+        <Money value={goal.remaining} fz="sm" exact c={goal.remaining > 0 ? undefined : 'dimmed'} />
       </TableTd>
       <TableTd ta="right">
-        <Money value={goal.target} fz="sm" fw={600} />
+        <Money value={goal.target} fz="sm" fw={600} exact />
       </TableTd>
       <TableTd>
         {/* узкая колонка: сумма недостачи и кнопка — отдельными строками под бейджем */}
@@ -101,7 +101,7 @@ export function CapGoalRow({
           </Badge>
           {goal.status === 'behind' && (
             <Text fz="xs" c="orange.8" className="money">
-              −{fmtMoney(Math.round(goal.behindAmount))}
+              −{fmtMoneyExact(goal.behindAmount)}
             </Text>
           )}
           {(goal.status === 'ready' || goal.status === 'waiting') && (
@@ -131,7 +131,7 @@ export function CapGoalRow({
                     key={ym}
                     label={
                       checked
-                        ? `${fmtMoney(flag!.amount)}${flag!.sent ? ' · отправлен' : ' · не отправлен'}`
+                        ? `${fmtMoneyExact(flag!.amount)}${flag!.sent ? ' · отправлен' : ' · не отправлен'}`
                         : locked
                           ? ym < startYm
                             ? 'До покупки'
@@ -261,7 +261,7 @@ function SpendDrawer({
     <FormDrawer opened={opened} onClose={onClose} title={`Потратить КАП: ${goal.name}`}>
       <Stack gap="sm">
         <Text fz="sm">
-          Накоплено <Money value={goal.contributed} fw={600} />
+          Накоплено <Money value={goal.contributed} fw={600} exact />
         </Text>
         <DatePickerInput
           label="Дата"
@@ -297,7 +297,7 @@ function SpendDrawer({
                   placeholder="Выберите цель"
                   data={otherGoals.map((g) => ({
                     value: String(g.id),
-                    label: `${g.name} (ост. ${fmtMoney(g.remaining)})`,
+                    label: `${g.name} (ост. ${fmtMoneyExact(g.remaining)})`,
                   }))}
                   value={t.goalId}
                   onChange={(v) => {
@@ -331,7 +331,7 @@ function SpendDrawer({
                 + получатель
               </Button>
               <Text fz="xs" c={Math.abs(diff) > 0.01 ? 'orange.8' : 'dimmed'} className="money">
-                {Math.abs(diff) > 0.01 ? `осталось распределить ${fmtMoney(diff)}` : 'распределено полностью ✓'}
+                {Math.abs(diff) > 0.01 ? `осталось распределить ${fmtMoneyExact(diff)}` : 'распределено полностью ✓'}
               </Text>
             </Group>
             <Group justify="flex-end">
