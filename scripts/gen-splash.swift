@@ -42,7 +42,8 @@ func rgb(_ hex: UInt32) -> NSColor {
           blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
 }
 let paper = rgb(0xFAF7F5), card = NSColor.white, cardBorder = rgb(0xEDE7E3)
-let skel = rgb(0xE9EDF0), dark8 = rgb(0x1F1F1F), salmon = rgb(0xD14A3C), grayIcon = rgb(0x49_50_57)
+// #F2F3F5 — первый кадр анимации Skeleton: белая подложка + gray-4 на opacity 0.4
+let skel = rgb(0xF2F3F5), dark8 = rgb(0x1F1F1F), salmon = rgb(0xD14A3C), grayIcon = rgb(0x49_50_57)
 
 for (lw, lh, dpr, statusH) in DEVICES {
   let W = Int(lw * dpr), H = Int(lh * dpr)
@@ -68,21 +69,23 @@ for (lw, lh, dpr, statusH) in DEVICES {
   NSRect(x: 0, y: 0, width: lw, height: lh).fill()
 
   // — без шапки: строка «бургер + логотип» в потоке страницы —
-  let headC = statusH + 16 + 12
-  for i in -1...1 {  // бургер size=sm
-    bar(16, headC - 1 + Double(i) * 5.5, 18, 2, 1, dark8)
+  // замерено в DOM (dev-splash, 402pt): строка 28pt (кнопка бургера 28×28),
+  // центр = statusH+16+14; линии 18×1.5 с шагом 6; лого x=56 (16+28+12)
+  let rowC = statusH + 16 + 14
+  for i in -1...1 {  // бургер size=sm: три линии, чёрные, без скругления
+    bar(21, rowC - 0.75 + Double(i) * 6, 18, 1.5, 0, NSColor.black)
   }
   let brandFont = NSFont(name: "Golos Text SemiBold", size: 17) ?? NSFont(name: "GolosText-SemiBold", size: 17)!
   let brand = NSMutableAttributedString()
   brand.append(NSAttributedString(string: "Вика", attributes: [.font: brandFont, .foregroundColor: dark8, .kern: -0.34]))
   brand.append(NSAttributedString(string: ".Salmon", attributes: [.font: brandFont, .foregroundColor: salmon, .kern: -0.34]))
-  // draw(at:) — нижний левый угол bounding box; центрируем полосу капов на headC
-  brand.draw(at: NSPoint(x: 46, y: lh - headC - brandFont.capHeight / 2 + brandFont.descender))
+  // draw(at:) — нижний левый угол bounding box; центрируем полосу капов на rowC
+  brand.draw(at: NSPoint(x: 56, y: lh - rowC - brandFont.capHeight / 2 + brandFont.descender))
 
   // — скелет дашборда: как в src/app/(app)/loading.tsx —
-  // приветствие по центру + круглая кнопка справа, сумма, 6 квадратных плиток
+  // все top-координаты = DOM-замер + statusH (в standalone весь поток ниже safe-area)
   let x = 16.0, cw = lw - 32
-  var y = headC + 12 + 12 + 10
+  var y = statusH + 16 + 28 + 12 + 10                      // строка 28 + mb sm + mt xs
   bar((lw - 210) / 2, y + 11, 210, 24, 8, skel)            // «Привет, Виктория!»
   bar(lw - 8 - 46, y, 46, 46, 23, skel)                    // круглая кнопка нового дня
   y += 46 + 32
