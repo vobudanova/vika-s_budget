@@ -3,6 +3,7 @@ import { Group, SimpleGrid, Stack, Title } from '@mantine/core';
 import { todayISO, ymOf } from '@/lib/dates';
 import { AnalyticsNav } from '@/components/analytics/AnalyticsNav';
 import {
+  FillWidget,
   ForecastWidget,
   FundsWidget,
   InflationWidget,
@@ -46,6 +47,9 @@ export default function AnalyticsTrendsPage() {
         }
       >
         <RhythmWidget ym={ym} />
+      </Suspense>
+      <Suspense fallback={<WidgetSkeleton chart={90} lines={4} />}>
+        <FillWidget />
       </Suspense>
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
         <Suspense

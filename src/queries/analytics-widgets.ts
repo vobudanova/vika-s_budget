@@ -451,3 +451,69 @@ export async function getTrendSeries(ym: string): Promise<TrendPoint[]> {
     income: round2(toNum(r.income)),
   }));
 }
+
+// ------------------------------------------------------------ заполненность
+
+export type FillDay = { date: string; status: 0 | 1 | 2 }; // 2 отмечен · 1 операции без отметки · 0 пусто
+export type FillYear = { year: number; days: FillDay[]; filled: number; passed: number };
+export type FillWidgetData = {
+  years: FillYear[]; // от старых к новым, от первого дня данных до сегодня
+  gaps: { from: string; to: string; days: number }[]; // самые длинные серии без отметки
+};
+
+export async function getFillWidget(): Promise<FillWidgetData> {
+  const today = todayISO();
+  const [filledRes, opsRes, firstRes] = await Promise.all([
+    db.execute(sql`SELECT date FROM filled_days ORDER BY 1`),
+    db.execute(sql`SELECT DISTINCT date FROM v_expenses_actual ORDER BY 1`),
+    db.execute(sql`
+      SELECT LEAST(
+        COALESCE((SELECT min(date) FROM filled_days), ${today}::date),
+        COALESCE((SELECT min(date) FROM transactions), ${today}::date)
+      ) AS d
+    `),
+  ]);
+  const filled = new Set((filledRes.rows as any[]).map((r) => String(r.date)));
+  const ops = new Set((opsRes.rows as any[]).map((r) => String(r.date)));
+  const start = String((firstRes.rows as any[])[0]?.d ?? today);
+
+  const iso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const byYear = new Map<number, FillDay[]>();
+  const cursor = new Date(`${start.slice(0, 4)}-01-01T00:00:00`);
+  // идём от начала первого года с данными до сегодня; дни до первой записи не судим
+  for (; iso(cursor) <= today; cursor.setDate(cursor.getDate() + 1)) {
+    const date = iso(cursor);
+    if (date < start) continue;
+    const status: 0 | 1 | 2 = filled.has(date) ? 2 : ops.has(date) ? 1 : 0;
+    const y = cursor.getFullYear();
+    byYear.set(y, [...(byYear.get(y) ?? []), { date, status }]);
+  }
+
+  const years: FillYear[] = [...byYear.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([year, days]) => ({
+      year,
+      days,
+      filled: days.filter((d) => d.status === 2).length,
+      passed: days.length,
+    }));
+
+  // дырки: подряд идущие дни без отметки (операции без галочки тоже дырка)
+  const all = years.flatMap((y) => y.days);
+  const gaps: { from: string; to: string; days: number }[] = [];
+  let run: FillDay[] = [];
+  const flush = () => {
+    if (run.length >= 3) gaps.push({ from: run[0].date, to: run[run.length - 1].date, days: run.length });
+    run = [];
+  };
+  for (const d of all) {
+    if (d.status === 2) flush();
+    else run.push(d);
+  }
+  flush();
+  gaps.sort((a, b) => b.days - a.days);
+
+  return { years, gaps: gaps.slice(0, 5) };
+}

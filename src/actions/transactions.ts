@@ -338,3 +338,39 @@ export async function listIncomePage(
     nextCursor: rows.length > limit && last ? { date: last.date, id: last.id } : null,
   };
 }
+
+// ------------------------------------------------------------------- поиск
+
+/** Поиск по операциям: каждый токен ищется в заметках, названиях категорий,
+    счетов, источников и статей; числовой токен дополнительно сверяется с суммой. */
+export async function searchTransactions(
+  q: string,
+  cursor: IncomeCursor | null,
+): Promise<{ items: TxRow[]; nextCursor: IncomeCursor | null }> {
+  const tokens = q.trim().split(/\s+/).filter(Boolean).slice(0, 5);
+  if (tokens.length === 0) return { items: [], nextCursor: null };
+  const limit = 50;
+
+  // регистр складываем через ICU: локаль базы может быть C, где lower()/ILIKE
+  // не работают для кириллицы
+  const fold = (f: string) => `lower(${f} COLLATE "und-x-icu")`;
+  const FIELDS = ['t.note', 't.acquired_note', 'c.name', 'cg.name', 'a.name', 'ca.name', 's.name', 'fc.name'];
+  const conds = tokens.map((tok) => {
+    const like = `%${tok.toLowerCase()}%`;
+    const num = Number(tok.replace(/\s/g, '').replace(',', '.'));
+    const numeric = Number.isFinite(num) && /^[\d\s.,]+$/.test(tok);
+    const fieldConds = FIELDS.map((f) => sql`${sql.raw(fold(f))} LIKE ${like}`);
+    return sql`(${sql.join(fieldConds, sql` OR `)}${numeric ? sql` OR abs(t.amount) = ${num}` : sql``})`;
+  });
+  const where = cursor
+    ? sql`${sql.join(conds, sql` AND `)} AND (t.date, t.id) < (${cursor.date}::date, ${cursor.id})`
+    : sql.join(conds, sql` AND `);
+
+  const rows = await getTransactions(where, limit + 1);
+  const items = rows.slice(0, limit);
+  const last = items[items.length - 1];
+  return {
+    items,
+    nextCursor: rows.length > limit && last ? { date: last.date, id: last.id } : null,
+  };
+}

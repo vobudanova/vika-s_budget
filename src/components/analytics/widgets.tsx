@@ -8,10 +8,11 @@ import {
   getHygieneWidget,
   getInflationWidget,
   getRhythmWidget,
+  getFillWidget,
   getThingsWidget,
   getTrendSeries,
 } from '@/queries/analytics-widgets';
-import { CapexChart, InflationChart, WeekdayChart, YearHeatmap } from './widget-charts';
+import { CapexChart, FillHeatmap, InflationChart, WeekdayChart, YearHeatmap } from './widget-charts';
 import { TrendCard } from './AnalyticsView';
 import { fmtMoney } from '@/lib/money';
 
@@ -517,4 +518,81 @@ export async function HygieneWidget({ ym }: { ym: string }) {
 export async function TrendWidget({ ym }: { ym: string }) {
   const months = await getTrendSeries(ym);
   return <TrendCard months={months} />;
+}
+
+// ------------------------------------------------------------ заполненность
+
+const dm = (d: string) => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`;
+
+export async function FillWidget() {
+  const d = await getFillWidget();
+  return (
+    <Card>
+      <Stack gap="sm">
+        <CardLabel>Заполненность учёта</CardLabel>
+        {d.years.length === 0 ? (
+          <Text fz="sm" c="dimmed">
+            Данных пока нет.
+          </Text>
+        ) : (
+          <>
+            {d.years.map((y) => (
+              <Stack key={y.year} gap={6}>
+                <Group gap="xs" align="baseline">
+                  <Text fw={700} fz="sm" className="money">
+                    {y.year}
+                  </Text>
+                  <Text
+                    fz="xs"
+                    className="money"
+                    c={y.filled / Math.max(y.passed, 1) >= 0.8 ? 'teal.8' : y.filled / Math.max(y.passed, 1) >= 0.4 ? 'orange.8' : 'red.8'}
+                  >
+                    отмечено {y.filled} из {y.passed} ({Math.round((y.filled / Math.max(y.passed, 1)) * 100)}%)
+                  </Text>
+                </Group>
+                <FillHeatmap days={y.days} />
+              </Stack>
+            ))}
+            <Group gap="md">
+              <Group gap={6}>
+                <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--mantine-color-ink-4)' }} />
+                <Text fz="xs" c="dimmed">день отмечен</Text>
+              </Group>
+              <Group gap={6}>
+                <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--mantine-color-orange-4)' }} />
+                <Text fz="xs" c="dimmed">операции есть, отметки нет</Text>
+              </Group>
+              <Group gap={6}>
+                <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--mantine-color-gray-2)' }} />
+                <Text fz="xs" c="dimmed">пусто</Text>
+              </Group>
+            </Group>
+            {d.gaps.length > 0 && (
+              <>
+                <CardLabel>Самые большие дырки</CardLabel>
+                <Stack gap={0}>
+                  {d.gaps.map((g, i) => (
+                    <Row
+                      key={g.from}
+                      last={i === d.gaps.length - 1}
+                      left={
+                        <Text fz="sm" className="money">
+                          {dm(g.from)} — {dm(g.to)}
+                        </Text>
+                      }
+                      right={
+                        <Text fz="sm" fw={600} className="money" c={g.days >= 14 ? 'red.8' : 'orange.8'} style={{ flexShrink: 0 }}>
+                          {g.days} дн. подряд
+                        </Text>
+                      }
+                    />
+                  ))}
+                </Stack>
+              </>
+            )}
+          </>
+        )}
+      </Stack>
+    </Card>
+  );
 }

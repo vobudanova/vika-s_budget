@@ -27,10 +27,13 @@ export function TxList({
   items,
   emptyText = 'Операций пока нет',
   showDate = false,
+  showYear = false,
 }: {
   items: TxRow[];
   emptyText?: string;
   showDate?: boolean;
+  /** дата с годом — для списков через несколько лет */
+  showYear?: boolean;
 }) {
   const [editing, setEditing] = useState<TxRow | null>(null);
 
@@ -45,14 +48,33 @@ export function TxList({
   return (
     <Stack gap={0}>
       {items.map((t, i) => (
-        <TxLine key={t.id} t={t} showDate={showDate} last={i === items.length - 1} onEdit={() => setEditing(t)} />
+        <TxLine
+          key={t.id}
+          t={t}
+          showDate={showDate}
+          showYear={showYear}
+          last={i === items.length - 1}
+          onEdit={() => setEditing(t)}
+        />
       ))}
       <EditModal t={editing} onClose={() => setEditing(null)} />
     </Stack>
   );
 }
 
-function TxLine({ t, showDate, last, onEdit }: { t: TxRow; showDate: boolean; last?: boolean; onEdit: () => void }) {
+function TxLine({
+  t,
+  showDate,
+  showYear,
+  last,
+  onEdit,
+}: {
+  t: TxRow;
+  showDate: boolean;
+  showYear?: boolean;
+  last?: boolean;
+  onEdit: () => void;
+}) {
   const [pending, startTransition] = useTransition();
   const { title, detail: baseDetail } = txLabel(t);
   const detail = [baseDetail, t.hidden ? 'скрыто из таблиц' : null].filter(Boolean).join(' · ');
@@ -78,7 +100,7 @@ function TxLine({ t, showDate, last, onEdit }: { t: TxRow; showDate: boolean; la
     >
       <Stack gap={0} style={{ minWidth: 0 }}>
         <Text fz="sm" fw={500} truncate>
-          {showDate ? `${t.date.slice(8, 10)}.${t.date.slice(5, 7)} · ` : ''}
+          {showDate ? `${t.date.slice(8, 10)}.${t.date.slice(5, 7)}${showYear ? `.${t.date.slice(0, 4)}` : ''} · ` : ''}
           {title}
         </Text>
         {detail && (
