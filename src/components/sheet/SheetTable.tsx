@@ -35,6 +35,7 @@ const FS = 15;
 const CELL_PY = 6; // строки «Начисленные»/«Фактические»
 const ROW_PY = 3; // категории и подкатегории (−20% высоты)
 const HEAD_PY = 5; // шапка с числами дней/месяцами (−15% высоты)
+const SECTION_GAP = 10; // воздух перед заголовком группы категорий
 const HEAD_FZ = 22; // числа дней и названия месяцев (−15%)
 const CELL_PX = 14;
 
@@ -284,10 +285,12 @@ function Section({
   onCell?: (q: CellClick) => void;
 }) {
   const rowPad = { paddingTop: ROW_PY, paddingBottom: ROW_PY };
+  // секции визуально разделены: заголовок группы дышит сверху
+  const headPad = { paddingTop: ROW_PY + SECTION_GAP, paddingBottom: ROW_PY };
   return (
     <>
       <Table.Tr>
-        <Table.Td style={{ ...firstCol, ...rowPad }}>
+        <Table.Td style={{ ...firstCol, ...headPad }}>
           <FirstCellBox w={cellBoxWidth}>
             {collapsible ? (
               <UnstyledButton onClick={onToggle} style={{ display: 'block', width: '100%' }}>
@@ -318,6 +321,7 @@ function Section({
           strong
           ta="center"
           py={ROW_PY}
+          pt={ROW_PY + SECTION_GAP}
           onClick={onCell ? () => onCell({ section: s.key, row: null, col: 'total', rowTitle: s.title }) : undefined}
         />
         {columns.map((c) => (
@@ -326,6 +330,7 @@ function Section({
             v={s.dayTotals[c.key]}
             strong
             py={ROW_PY}
+            pt={ROW_PY + SECTION_GAP}
             onClick={onCell ? () => onCell({ section: s.key, row: null, col: c.key, rowTitle: s.title }) : undefined}
           />
         ))}
@@ -384,6 +389,7 @@ export function NumCell({
   diff,
   ta = 'right',
   py,
+  pt,
   bg,
   thickBottom,
   onClick,
@@ -396,6 +402,8 @@ export function NumCell({
   /** дни/месяцы — по правому краю (по умолчанию), столбец Σ — по центру */
   ta?: 'right' | 'center';
   py?: number;
+  /** отдельный верхний отступ (воздух перед заголовком секции) */
+  pt?: number;
   bg?: string;
   thickBottom?: boolean;
   /** раскладка ячейки по клику */
@@ -424,6 +432,7 @@ export function NumCell({
       onClick={onClick}
       style={{
         ...(py !== undefined ? { paddingTop: py, paddingBottom: py } : null),
+        ...(pt !== undefined ? { paddingTop: pt } : null),
         ...(bg ? { backgroundColor: bg } : null),
         ...(onClick ? { cursor: 'pointer' } : null),
         // линия фоном, как в первой колонке — иначе высота стыков не совпадает

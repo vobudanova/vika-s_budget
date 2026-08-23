@@ -47,7 +47,7 @@ export function IncomeSheet({
 
   const num = (
     v: number,
-    opts: { strong?: boolean; ta?: 'right' | 'center'; onClick?: () => void; key?: React.Key },
+    opts: { strong?: boolean; ta?: 'right' | 'center'; onClick?: () => void; key?: React.Key; pt?: number },
   ) => {
     const isZero = Math.abs(v) < 0.005;
     return (
@@ -59,7 +59,7 @@ export function IncomeSheet({
         c={isZero ? 'gray.4' : undefined}
         onClick={opts.onClick}
         style={{
-          paddingTop: ROW_PY,
+          paddingTop: opts.pt ?? ROW_PY,
           paddingBottom: ROW_PY,
           ...(opts.onClick ? { cursor: 'pointer' } : null),
         }}
@@ -129,7 +129,8 @@ export function IncomeSheet({
               </Table.Tr>
               {groups.map((g) => [
                 <Table.Tr key={`g-${g.type}`}>
-                  <Table.Td style={{ paddingTop: ROW_PY, paddingBottom: ROW_PY }}>
+                  {/* группы разделены воздухом перед заголовком */}
+                  <Table.Td style={{ paddingTop: ROW_PY + 10, paddingBottom: ROW_PY }}>
                     <Text fz={FS} fw={700}>
                       {g.label}
                     </Text>
@@ -137,12 +138,14 @@ export function IncomeSheet({
                   {num(groupYear(g), {
                     strong: true,
                     ta: 'center',
+                    pt: ROW_PY + 10,
                     onClick: () => openCell(`type:${g.type}`, g.label, 'total'),
                   })}
                   {Array.from({ length: 12 }, (_, i) =>
                     num(groupMonth(g, i + 1), {
                       strong: true,
                       key: i,
+                      pt: ROW_PY + 10,
                       onClick: () => openCell(`type:${g.type}`, g.label, i + 1),
                     }),
                   )}

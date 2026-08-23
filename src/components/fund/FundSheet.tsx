@@ -263,6 +263,8 @@ function FundRow({
   openCell: (side: 'in' | 'out', catId: number | null, name: string, m: number | 'total') => void;
 }) {
   const strong = kind !== 'row';
+  // группы разделены воздухом перед заголовком
+  const padTop = kind === 'group' ? ROW_PY + 10 : ROW_PY;
   const cell = (v: number, side: 'in' | 'out', m: number) => {
     const isZero = Math.abs(v) < 0.005;
     return (
@@ -273,7 +275,7 @@ function FundRow({
         fw={strong ? 700 : undefined}
         c={isZero ? 'gray.4' : side === 'out' ? 'gray.7' : undefined}
         onClick={() => openCell(side, a.catId, a.name, m)}
-        style={{ paddingTop: ROW_PY, paddingBottom: ROW_PY, cursor: 'pointer' }}
+        style={{ paddingTop: padTop, paddingBottom: ROW_PY, cursor: 'pointer' }}
       >
         {isZero ? '0' : fmtNumber(v, 0)}
       </Table.Td>
@@ -287,7 +289,7 @@ function FundRow({
         className="money"
         fw={opts?.strong ? 700 : undefined}
         c={isZero ? 'gray.4' : v < 0 ? 'red.8' : opts?.muted ? 'gray.6' : undefined}
-        style={{ paddingTop: ROW_PY, paddingBottom: ROW_PY }}
+        style={{ paddingTop: padTop, paddingBottom: ROW_PY }}
       >
         {isZero ? '0' : fmtNumber(v, 0)}
       </Table.Td>
@@ -295,7 +297,7 @@ function FundRow({
   };
   return (
     <Table.Tr>
-      <Table.Td style={{ ...firstCol, paddingTop: ROW_PY, paddingBottom: ROW_PY }}>
+      <Table.Td style={{ ...firstCol, paddingTop: padTop, paddingBottom: ROW_PY }}>
         <div style={{ width: cellBoxWidth, overflow: 'hidden', transition: 'width 160ms ease' }}>
           <Text
             fz={FS}
