@@ -1,4 +1,4 @@
-import { Badge, Card, Group, Skeleton, Stack, Text } from '@mantine/core';
+import { Badge, Card, Group, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core';
 import { CardLabel } from '@/components/CardLabel';
 import { Money } from '@/components/Money';
 import {
@@ -11,6 +11,8 @@ import {
   getAnomalies,
   getCapMonths,
   getFillWidget,
+  getMomTiles,
+  getSavingsNext,
   getThingsWidget,
   getTrendSeries,
 } from '@/queries/analytics-widgets';
@@ -58,27 +60,6 @@ export async function ThingsWidget({ ym }: { ym: string }) {
   return (
     <Card>
       <Stack gap="sm">
-        <CardLabel>Когда станет легче</CardLabel>
-        {d.releases.length === 0 ? (
-          <Text fz="sm" c="dimmed">
-            В ближайшие месяцы начисления не заканчиваются.
-          </Text>
-        ) : (
-          <Stack gap={0}>
-            {d.releases.map((r, i) => (
-              <Row
-                key={r.label}
-                last={i === d.releases.length - 1}
-                left={<Text fz="sm">{r.label} — доамортизируются вещи</Text>}
-                right={
-                  <Text fz="sm" className="money" c="teal.8" fw={500} style={{ flexShrink: 0 }}>
-                    −{money0(r.monthly)}/мес
-                  </Text>
-                }
-              />
-            ))}
-          </Stack>
-        )}
         <CardLabel>Доля покупок в расходах</CardLabel>
         <CapexChart data={d.capexShare} />
       </Stack>
@@ -258,67 +239,33 @@ export async function ForecastWidget({ ym }: { ym: string }) {
   );
 }
 
-// ------------------------------------------------------------ фонды
+// ------------------------------------------- сбережения следующего месяца
 
-export async function FundsWidget({ ym }: { ym: string }) {
-  const d = await getFundsWidget(ym);
+export async function SavingsNextWidget() {
+  const d = await getSavingsNext();
   return (
     <Card>
       <Stack gap="sm">
-        <CardLabel>Здоровье фондов</CardLabel>
-        <Group gap="xs">
-          <Badge variant="light" color="teal">
-            КАП в графике: {d.capOnTrack}
-          </Badge>
-          {d.capBehind > 0 && (
-            <Badge variant="light" color="orange">
-              отстают: {d.capBehind} на {money0(d.capBehindSum)}
-            </Badge>
-          )}
-          {d.capDoneBy && (
-            <Badge variant="light" color="gray">
-              все цели закроются к {d.capDoneBy}
-            </Badge>
-          )}
-        </Group>
-        {d.ksBurn.length > 0 ? (
-          <>
-            <Text fz="xs" c="dimmed">
-              Статьи КС, которые тают быстрее всего (темп — среднее за 3 мес):
-            </Text>
-            <Stack gap={0}>
-              {d.ksBurn.map((k, i) => (
-                <Row
-                  key={k.name}
-                  last={i === d.ksBurn.length - 1}
-                  left={
-                    <Text fz="sm" truncate>
-                      {k.name}{' '}
-                      <Text span fz="xs" c="dimmed" className="money">
-                        {money0(k.balance)} при {money0(k.perMonth)}/мес
-                      </Text>
-                    </Text>
-                  }
-                  right={
-                    <Text
-                      fz="sm"
-                      fw={600}
-                      className="money"
-                      c={k.monthsLeft < 2 ? 'red.8' : k.monthsLeft < 4 ? 'orange.8' : undefined}
-                      style={{ flexShrink: 0 }}
-                    >
-                      {k.monthsLeft < 0.05 ? '<0,1' : `~${k.monthsLeft.toFixed(1).replace('.', ',')}`} мес
-                    </Text>
-                  }
-                />
-              ))}
-            </Stack>
-          </>
-        ) : (
-          <Text fz="sm" c="dimmed">
-            Активных трат из статей КС за последние месяцы нет — сальдо не тают.
-          </Text>
-        )}
+        <CardLabel>Сбережения в {d.monthPrep}</CardLabel>
+        <Stack gap={0}>
+          <Row
+            left={<Text fz="sm">КАП</Text>}
+            right={<Money value={d.capMonthly} fz="sm" fw={600} exact style={{ flexShrink: 0 }} />}
+          />
+          <Row
+            left={<Text fz="sm">КС</Text>}
+            right={<Money value={d.ksMonthly} fz="sm" fw={600} exact style={{ flexShrink: 0 }} />}
+          />
+          <Row
+            last
+            left={<Text fz="sm">Долгосрочные сбережения</Text>}
+            right={
+              <Text fz="xs" c="dimmed" style={{ flexShrink: 0 }}>
+                выберем на странице сбережений
+              </Text>
+            }
+          />
+        </Stack>
       </Stack>
     </Card>
   );
@@ -602,5 +549,45 @@ export async function AnomaliesWidget({ ym }: { ym: string }) {
         )}
       </Stack>
     </Card>
+  );
+}
+
+// ------------------------------------------------------- месяц к месяцу
+
+export async function MomWidget({ ym }: { ym: string }) {
+  const tiles = await getMomTiles(ym);
+  return (
+    <SimpleGrid cols={{ base: 2, xs: 4, md: 8 }} spacing="xs">
+      {tiles.map((t) => (
+        <Card key={t.name} padding="xs">
+          <Stack gap={2}>
+            <Text fz="xs" c="dimmed" truncate>
+              {t.name}
+            </Text>
+            <Group gap={6} justify="space-between" wrap="nowrap">
+              <Text fz="sm" fw={600} className="money" truncate>
+                {money0(t.current)}
+              </Text>
+              {t.pct !== null ? (
+                <Text
+                  fz="xs"
+                  fw={700}
+                  className="money"
+                  c={t.pct > 0 ? 'red.7' : t.pct < 0 ? 'teal.8' : 'dimmed'}
+                  style={{ flexShrink: 0 }}
+                >
+                  {t.pct > 0 ? '+' : ''}
+                  {t.pct}%
+                </Text>
+              ) : (
+                <Text fz="xs" c="dimmed" style={{ flexShrink: 0 }}>
+                  —
+                </Text>
+              )}
+            </Group>
+          </Stack>
+        </Card>
+      ))}
+    </SimpleGrid>
   );
 }

@@ -32,10 +32,13 @@ export type CellClick = {
 };
 
 const FS = 15;
-const CELL_PY = 6; // строки «Начисленные»/«Фактические»
-const ROW_PY = 3; // категории и подкатегории (−20% высоты)
-const HEAD_PY = 5; // шапка с числами дней/месяцами (−15% высоты)
+const CELL_PY = 5; // строки «Начисленные»/«Фактические» (−15%)
+const ROW_PY = 3; // заголовки групп
+const HEAD_PY = 4; // шапка с числами дней/месяцами (−15%)
 const SECTION_GAP = 10; // воздух перед заголовком группы категорий
+// строки категорий: −30% высоты, зазор сверху, текст по центру остатка
+const CAT_PT = 4;
+const CAT_LH = 1.2;
 const HEAD_FZ = 22; // числа дней и названия месяцев (−15%)
 const CELL_PX = 14;
 
@@ -284,7 +287,6 @@ function Section({
   onToggle: () => void;
   onCell?: (q: CellClick) => void;
 }) {
-  const rowPad = { paddingTop: ROW_PY, paddingBottom: ROW_PY };
   // секции визуально разделены: заголовок группы дышит сверху
   const headPad = { paddingTop: ROW_PY + SECTION_GAP, paddingBottom: ROW_PY };
   return (
@@ -338,7 +340,15 @@ function Section({
       {!collapsed &&
         s.rows.map((r) => (
           <Table.Tr key={r.key}>
-            <Table.Td style={{ ...firstCol, ...rowPad }}>
+            <Table.Td
+              style={{
+                ...firstCol,
+                paddingTop: CAT_PT,
+                paddingBottom: 0,
+                lineHeight: CAT_LH,
+                verticalAlign: 'middle',
+              }}
+            >
               <FirstCellBox w={cellBoxWidth}>
                 <Group gap={6} wrap="nowrap">
                   <Text
@@ -364,14 +374,14 @@ function Section({
               v={r.total}
               mutedTotal
               ta="center"
-              py={ROW_PY}
+              compact
               onClick={onCell ? () => onCell({ section: s.key, row: r.key, col: 'total', rowTitle: r.name }) : undefined}
             />
             {columns.map((c) => (
               <NumCell
                 key={c.key}
                 v={r.days[c.key]}
-                py={ROW_PY}
+                compact
                 onClick={onCell ? () => onCell({ section: s.key, row: r.key, col: c.key, rowTitle: r.name }) : undefined}
               />
             ))}
@@ -390,6 +400,7 @@ export function NumCell({
   ta = 'right',
   py,
   pt,
+  compact,
   bg,
   thickBottom,
   onClick,
@@ -404,6 +415,8 @@ export function NumCell({
   py?: number;
   /** отдельный верхний отступ (воздух перед заголовком секции) */
   pt?: number;
+  /** строка категории: −30% высоты, воздух сверху, центр по высоте */
+  compact?: boolean;
   bg?: string;
   thickBottom?: boolean;
   /** раскладка ячейки по клику */
@@ -433,6 +446,9 @@ export function NumCell({
       style={{
         ...(py !== undefined ? { paddingTop: py, paddingBottom: py } : null),
         ...(pt !== undefined ? { paddingTop: pt } : null),
+        ...(compact
+          ? { paddingTop: CAT_PT, paddingBottom: 0, lineHeight: CAT_LH, verticalAlign: 'middle' as const }
+          : null),
         ...(bg ? { backgroundColor: bg } : null),
         ...(onClick ? { cursor: 'pointer' } : null),
         // линия фоном, как в первой колонке — иначе высота стыков не совпадает

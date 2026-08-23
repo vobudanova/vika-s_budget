@@ -5,7 +5,7 @@ import { sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { round2, toNum } from '@/lib/money';
 
-export type CellItem = { date: string; label: string; sub?: string | null; amount: number };
+export type CellItem = { date: string; label: string; sub?: string | null; amount: number; moveId?: number };
 export type CellBreakdown = { items: CellItem[]; total: number };
 
 const dateISO = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -34,6 +34,7 @@ export async function getCellBreakdown(
         label: String(r.label ?? ''),
         sub: (r.sub as string | null) ?? null,
         amount: toNum(r.s as string),
+        ...(r.move_id ? { moveId: Number(r.move_id) } : null),
       });
     }
   };
@@ -88,7 +89,7 @@ export async function getCellBreakdown(
     } else if (section === 'ks') {
       push(
         await db.execute(sql`
-          SELECT fm.date, fc.name AS label, fm.note AS sub, -fm.amount AS s
+          SELECT fm.id AS move_id, fm.date, fc.name AS label, fm.note AS sub, -fm.amount AS s
           FROM fund_movements fm JOIN fund_categories fc ON fc.id = fm.fund_category_id
           WHERE fm.kind = 'reimbursement' AND fm.date BETWEEN ${from} AND ${to}
             AND ${row ? sql`fm.fund_category_id = ${Number(row)}` : sql`true`}
@@ -98,7 +99,7 @@ export async function getCellBreakdown(
       // «отложено» по статьям фонда: пополнения и корректировки
       push(
         await db.execute(sql`
-          SELECT fm.date, fc.name AS label,
+          SELECT fm.id AS move_id, fm.date, fc.name AS label,
                  COALESCE(NULLIF(fm.note, ''),
                           CASE fm.kind WHEN 'plan_topup' THEN 'пополнение по плану'
                                        WHEN 'extra_topup' THEN 'доп. пополнение'

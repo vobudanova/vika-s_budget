@@ -3,12 +3,10 @@ import { Group, SimpleGrid, Stack, Title } from '@mantine/core';
 import { todayISO, ymOf } from '@/lib/dates';
 import { AnalyticsNav } from '@/components/analytics/AnalyticsNav';
 import {
-  CapMonthsWidget,
   FillWidget,
-  ForecastWidget,
-  FundsWidget,
   InflationWidget,
-  RhythmWidget,
+  MomWidget,
+  SavingsNextWidget,
   ThingsWidget,
   TrendWidget,
   WidgetSkeleton,
@@ -31,38 +29,23 @@ export default function AnalyticsTrendsPage() {
       <Suspense fallback={<WidgetSkeleton chart={240} lines={0} />}>
         <TrendWidget ym={ym} />
       </Suspense>
+      <Suspense fallback={<WidgetSkeleton lines={2} />}>
+        <MomWidget ym={ym} />
+      </Suspense>
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-        <Suspense fallback={<WidgetSkeleton lines={5} />}>
-          <ForecastWidget ym={ym} />
+        <Suspense fallback={<WidgetSkeleton lines={4} />}>
+          <SavingsNextWidget />
         </Suspense>
-        <Suspense fallback={<WidgetSkeleton lines={5} />}>
-          <FundsWidget ym={ym} />
+        <Suspense fallback={<WidgetSkeleton chart={130} lines={1} />}>
+          <ThingsWidget ym={ym} />
         </Suspense>
       </SimpleGrid>
-      <Suspense
-        fallback={
-          <>
-            <WidgetSkeleton chart={100} lines={1} />
-            <WidgetSkeleton chart={150} lines={4} />
-          </>
-        }
-      >
-        <RhythmWidget ym={ym} />
-      </Suspense>
       <Suspense fallback={<WidgetSkeleton chart={90} lines={4} />}>
         <FillWidget />
       </Suspense>
-      <Suspense fallback={<WidgetSkeleton lines={8} />}>
-        <CapMonthsWidget />
+      <Suspense fallback={<WidgetSkeleton chart={200} lines={2} />}>
+        <InflationWidget ym={ym} />
       </Suspense>
-      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-        <Suspense fallback={<WidgetSkeleton chart={130} lines={4} />}>
-          <ThingsWidget ym={ym} />
-        </Suspense>
-        <Suspense fallback={<WidgetSkeleton chart={200} lines={2} />}>
-          <InflationWidget ym={ym} />
-        </Suspense>
-      </SimpleGrid>
     </Stack>
   );
 }

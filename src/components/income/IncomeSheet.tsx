@@ -47,7 +47,14 @@ export function IncomeSheet({
 
   const num = (
     v: number,
-    opts: { strong?: boolean; ta?: 'right' | 'center'; onClick?: () => void; key?: React.Key; pt?: number },
+    opts: {
+      strong?: boolean;
+      ta?: 'right' | 'center';
+      onClick?: () => void;
+      key?: React.Key;
+      pt?: number;
+      compact?: boolean;
+    },
   ) => {
     const isZero = Math.abs(v) < 0.005;
     return (
@@ -59,8 +66,9 @@ export function IncomeSheet({
         c={isZero ? 'gray.4' : undefined}
         onClick={opts.onClick}
         style={{
-          paddingTop: opts.pt ?? ROW_PY,
-          paddingBottom: ROW_PY,
+          paddingTop: opts.pt ?? (opts.compact ? 4 : ROW_PY),
+          paddingBottom: opts.compact ? 0 : ROW_PY,
+          ...(opts.compact ? { lineHeight: 1.2, verticalAlign: 'middle' as const } : null),
           ...(opts.onClick ? { cursor: 'pointer' } : null),
         }}
       >
@@ -152,18 +160,22 @@ export function IncomeSheet({
                 </Table.Tr>,
                 ...g.sources.map((s) => (
                   <Table.Tr key={s.id}>
-                    <Table.Td style={{ paddingTop: ROW_PY, paddingBottom: ROW_PY }}>
-                      <Text fz={FS} pl={16} c="dark.4" truncate>
+                    <Table.Td
+                      style={{ paddingTop: 4, paddingBottom: 0, lineHeight: 1.2, verticalAlign: 'middle' }}
+                    >
+                      <Text fz={FS} pl={16} c="dark.4" truncate lh={1.2}>
                         {s.name}
                       </Text>
                     </Table.Td>
                     {num(s.total, {
                       ta: 'center',
+                      compact: true,
                       onClick: () => openCell(`src:${s.id}`, s.name, 'total'),
                     })}
                     {Array.from({ length: 12 }, (_, i) =>
                       num(s.months[i + 1] ?? 0, {
                         key: i,
+                        compact: true,
                         onClick: () => openCell(`src:${s.id}`, s.name, i + 1),
                       }),
                     )}

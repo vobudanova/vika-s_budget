@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { RU_MONTHS, RU_MONTHS_DAT, monthEnd, monthStart, todayISO, ymOf } from '@/lib/dates';
+import { RU_MONTHS, RU_MONTHS_DAT, RU_MONTHS_PREP, monthEnd, monthStart, todayISO, ymOf } from '@/lib/dates';
 import { fmtMoney, round2, toNum } from '@/lib/money';
 
 const label = (ym: string) => RU_MONTHS[Number(ym.slice(5, 7)) - 1].slice(0, 3).toLowerCase();
@@ -634,4 +634,76 @@ export async function getAnomalies(ym: string): Promise<Anomaly[]> {
     .sort((a, b) => b.weight - a.weight)
     .slice(0, 8)
     .map((x) => x.a);
+}
+
+// ------------------------------------------------- сбережения след. месяца
+
+export type SavingsNextData = {
+  monthPrep: string; // «сентябре»
+  capMonthly: number; // Σ месячных взносов активных несобранных целей
+  ksMonthly: number; // Σ планов статей КС
+};
+
+export async function getSavingsNext(): Promise<SavingsNextData> {
+  const today = todayISO();
+  const next = new Date(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 1);
+  const [capRes, ksRes] = await Promise.all([
+    db.execute(sql`
+      SELECT COALESCE(sum(g.monthly_contribution), 0) AS s
+      FROM cap_goals g
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(sum(amount), 0) AS s FROM cap_movements WHERE cap_goal_id = g.id
+      ) l ON true
+      WHERE g.spent_at IS NULL AND g.target_amount - l.s >= 1
+    `),
+    db.execute(sql`SELECT COALESCE(sum(monthly_plan), 0) AS s FROM fund_categories`),
+  ]);
+  return {
+    monthPrep: RU_MONTHS_PREP[next.getMonth()],
+    capMonthly: round2(toNum((capRes.rows as any[])[0]?.s)),
+    ksMonthly: round2(toNum((ksRes.rows as any[])[0]?.s)),
+  };
+}
+
+// ------------------------------------------------------- месяц к месяцу
+
+export type MomTile = { name: string; current: number; prev: number; pct: number | null };
+
+const MOM_GROUPS = ['Питание', 'Красота', 'Транспорт', 'Бабушки', 'Прочее', 'Покупки', 'Поездки'];
+
+/** Плитки «месяц к месяцу»: группы расходов + амортизация, текущий месяц
+    против предыдущего. */
+export async function getMomTiles(ym: string): Promise<MomTile[]> {
+  // monthsBack(ym, 2) — первый день предыдущего месяца (n месяцев, включая ym)
+  const prevStart = monthsBack(ym, 2);
+  const prev = prevStart.slice(0, 7);
+  const [grpRes, amortRes] = await Promise.all([
+    db.execute(sql`
+      SELECT cg.name, to_char(date_trunc('month', v.date), 'YYYY-MM') AS ym, sum(v.amount) AS s
+      FROM v_expenses_actual v JOIN category_groups cg ON cg.id = v.group_id
+      WHERE v.date >= ${prevStart} AND v.date <= ${monthEnd(ym)}
+      GROUP BY 1, 2
+    `),
+    db.execute(sql`
+      SELECT to_char(date_trunc('month', date), 'YYYY-MM') AS ym, sum(amount) AS s
+      FROM v_expenses_accrued WHERE src = 'amortization'
+        AND date >= ${prevStart} AND date <= ${monthEnd(ym)}
+      GROUP BY 1
+    `),
+  ]);
+  const val = new Map<string, number>();
+  for (const r of grpRes.rows as any[]) val.set(`${r.name}:${r.ym}`, toNum(r.s));
+  for (const r of amortRes.rows as any[]) val.set(`Амортизация:${r.ym}`, toNum(r.s));
+
+  const names = [...MOM_GROUPS.slice(0, 5), 'Покупки', 'Амортизация', 'Поездки'];
+  return names.map((name) => {
+    const current = round2(val.get(`${name}:${ym}`) ?? 0);
+    const p = round2(val.get(`${name}:${prev}`) ?? 0);
+    return {
+      name,
+      current,
+      prev: p,
+      pct: p > 0 ? Math.round(((current - p) / p) * 100) : null,
+    };
+  });
 }

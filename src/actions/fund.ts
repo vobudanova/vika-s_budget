@@ -318,3 +318,59 @@ export async function listFundMovesPage(
     nextCursor: mapped.length > limit && last ? { date: last.date, id: last.id } : null,
   };
 }
+
+/** Правка движения фонда из разбивки ячейки КС: дата, сумма (по модулю),
+    заметка. Связанная транзакция пересчитывается по всем её движениям. */
+const updateMoveInput = z.object({
+  id: z.coerce.number().int().positive(),
+  date: z.string().refine(isValidISODate, 'Некорректная дата'),
+  amount: z
+    .string()
+    .transform((v, ctx) => {
+      const n = parseAmountExpr(v);
+      if (!n || n <= 0) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Некорректная сумма' });
+        return z.NEVER;
+      }
+      return n;
+    }),
+  note: z.string().trim().max(500).optional(),
+});
+
+export async function updateFundMovement(raw: z.input<typeof updateMoveInput>): Promise<ActionResult> {
+  try {
+    const input = updateMoveInput.parse(raw);
+    const [m] = await db.select().from(fundMovements).where(eq(fundMovements.id, input.id));
+    if (!m) return { ok: false, error: 'Движение не найдено' };
+    const sign = toNum(m.amount) < 0 ? -1 : 1;
+    await db.transaction(async (tx) => {
+      await tx
+        .update(fundMovements)
+        .set({
+          date: input.date,
+          amount: String(round2(sign * input.amount)),
+          note: input.note !== undefined ? input.note || null : m.note,
+        })
+        .where(eq(fundMovements.id, input.id));
+      if (m.transactionId) {
+        const siblings = await tx
+          .select()
+          .from(fundMovements)
+          .where(eq(fundMovements.transactionId, m.transactionId));
+        const total = round2(siblings.reduce((s, x) => s + Math.abs(toNum(x.amount)), 0));
+        await tx
+          .update(transactions)
+          .set({
+            amount: String(total),
+            ...(siblings.length === 1 ? { date: input.date } : {}),
+            updatedAt: new Date(),
+          })
+          .where(eq(transactions.id, m.transactionId));
+      }
+    });
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
