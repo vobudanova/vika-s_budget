@@ -7,7 +7,6 @@ import {
   InflationWidget,
   MomWidget,
   SavingsNextWidget,
-  ThingsWidget,
   TrendWidget,
   WidgetSkeleton,
 } from '@/components/analytics/widgets';
@@ -35,9 +34,6 @@ export default function AnalyticsTrendsPage() {
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
         <Suspense fallback={<WidgetSkeleton lines={4} />}>
           <SavingsNextWidget />
-        </Suspense>
-        <Suspense fallback={<WidgetSkeleton chart={130} lines={1} />}>
-          <ThingsWidget ym={ym} />
         </Suspense>
       </SimpleGrid>
       <Suspense fallback={<WidgetSkeleton chart={90} lines={4} />}>

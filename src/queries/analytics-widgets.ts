@@ -12,109 +12,6 @@ function monthsBack(ym: string, n: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
-// ------------------------------------------------------------ вещи
-
-export type ThingsWidgetData = {
-  releases: { label: string; monthly: number }[]; // когда освободятся начисления
-  capexShare: { label: string; pct: number }[]; // доля покупок в фактических, 12 мес
-};
-
-export async function getThingsWidget(ym: string): Promise<ThingsWidgetData> {
-  const from12 = monthsBack(ym, 11);
-  const [relRes, capexRes] = await Promise.all([
-    db.execute(sql`
-      SELECT to_char(last_d, 'YYYY-MM') AS ym, sum(monthly) AS s FROM (
-        SELECT a.id, max(aa.accrual_date) AS last_d,
-               (a.initial_price + COALESCE(adj.s, 0)) / a.term_months AS monthly
-        FROM assets a
-        JOIN amortization_accruals aa ON aa.asset_id = a.id
-        LEFT JOIN LATERAL (SELECT sum(amount) AS s FROM asset_adjustments WHERE asset_id = a.id) adj ON true
-        WHERE a.disposed_at IS NULL
-        GROUP BY a.id, adj.s
-      ) x
-      WHERE last_d >= ${monthStart(ym)} AND last_d < ${monthStart(ym)}::date + interval '9 months'
-      GROUP BY 1 ORDER BY 1
-    `),
-    db.execute(sql`
-      SELECT to_char(date_trunc('month', date), 'YYYY-MM') AS ym,
-             sum(amount) FILTER (WHERE src = 'purchase') AS purch,
-             sum(amount) AS total
-      FROM v_expenses_actual
-      WHERE date >= ${from12} AND date <= ${monthEnd(ym)}
-      GROUP BY 1 ORDER BY 1
-    `),
-  ]);
-
-  return {
-    releases: (relRes.rows as any[]).map((r) => ({ label: label(String(r.ym)), monthly: round2(toNum(r.s)) })),
-    capexShare: (capexRes.rows as any[]).map((r) => ({
-      label: label(String(r.ym)),
-      pct: toNum(r.total) > 0 ? Math.round((toNum(r.purch) / toNum(r.total)) * 100) : 0,
-    })),
-  };
-}
-
-// ------------------------------------------------------------ ритмы
-
-export type RhythmWidgetData = {
-  heat: { date: string; amount: number }[]; // последние ~12 месяцев
-  weekday: { label: string; avg: number }[];
-  regular: { name: string; avg: number; months: number }[];
-};
-
-export async function getRhythmWidget(ym: string): Promise<RhythmWidgetData> {
-  const from12 = monthsBack(ym, 11);
-  const [heatRes, dwRes, regRes] = await Promise.all([
-    db.execute(sql`
-      SELECT date, sum(amount) AS s FROM v_expenses_actual
-      WHERE date >= ${from12} AND date <= ${monthEnd(ym)}
-      GROUP BY 1 ORDER BY 1
-    `),
-    db.execute(sql`
-      SELECT EXTRACT(ISODOW FROM date)::int AS dw, sum(amount) AS s, count(DISTINCT date) AS days
-      FROM v_expenses_actual
-      WHERE date >= ${monthsBack(ym, 5)} AND date <= ${monthEnd(ym)} AND src = 'expense'
-      GROUP BY 1 ORDER BY 1
-    `),
-    db.execute(sql`
-      SELECT c.name, to_char(date_trunc('month', v.date), 'YYYY-MM') AS ym, sum(v.amount) AS s
-      FROM v_expenses_actual v JOIN categories c ON c.id = v.category_id
-      WHERE v.src = 'expense' AND v.date >= ${monthsBack(ym, 5)} AND v.date <= ${monthEnd(ym)}
-      GROUP BY 1, 2
-    `),
-  ]);
-
-  const names = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
-  const weekday = (dwRes.rows as any[]).map((r) => ({
-    label: names[Number(r.dw) - 1],
-    avg: round2(toNum(r.s) / Math.max(1, Number(r.days))),
-  }));
-
-  // регулярные: категория встречается в ≥4 из 6 месяцев и суммы стабильны
-  const byCat = new Map<string, number[]>();
-  for (const r of regRes.rows as any[]) {
-    const arr = byCat.get(r.name) ?? [];
-    arr.push(toNum(r.s));
-    byCat.set(r.name, arr);
-  }
-  const regular = [...byCat.entries()]
-    .map(([name, sums]) => {
-      const avg = sums.reduce((s, v) => s + v, 0) / sums.length;
-      const cv = Math.sqrt(sums.reduce((s, v) => s + (v - avg) ** 2, 0) / sums.length) / (avg || 1);
-      return { name, avg: round2(avg), months: sums.length, cv };
-    })
-    .filter((x) => x.months >= 4 && x.cv < 0.45 && x.avg >= 300)
-    .sort((a, b) => b.avg - a.avg)
-    .slice(0, 6)
-    .map(({ name, avg, months }) => ({ name, avg, months }));
-
-  return {
-    heat: (heatRes.rows as any[]).map((r) => ({ date: String(r.date), amount: round2(toNum(r.s)) })),
-    weekday,
-    regular,
-  };
-}
-
 // ------------------------------------------------------------ инфляция
 
 export type InflationWidgetData = {
@@ -667,27 +564,27 @@ export async function getSavingsNext(): Promise<SavingsNextData> {
 
 // ------------------------------------------------------- месяц к месяцу
 
-export type MomTile = { name: string; current: number; prev: number; pct: number | null };
+export type MomMonthRow = { name: string; pct: number | null };
+export type MomMonth = { ym: string; label: string; rows: MomMonthRow[] };
 
-const MOM_GROUPS = ['Питание', 'Красота', 'Транспорт', 'Бабушки', 'Прочее', 'Покупки', 'Поездки'];
+const MOM_NAMES = ['Питание', 'Красота', 'Транспорт', 'Бабушки', 'Прочее', 'Покупки', 'Амортизация', 'Поездки'];
 
-/** Плитки «месяц к месяцу»: группы расходов + амортизация, текущий месяц
-    против предыдущего. */
-export async function getMomTiles(ym: string): Promise<MomTile[]> {
-  // monthsBack(ym, 2) — первый день предыдущего месяца (n месяцев, включая ym)
-  const prevStart = monthsBack(ym, 2);
-  const prev = prevStart.slice(0, 7);
+/** Шесть последних месяцев, в каждом — одинаковый набор категорий
+    с процентом к предыдущему месяцу. */
+export async function getMomMonths(ym: string): Promise<MomMonth[]> {
+  const COUNT = 6;
+  const from = monthsBack(ym, COUNT + 1); // +1 месяц для базы сравнения самого старого
   const [grpRes, amortRes] = await Promise.all([
     db.execute(sql`
       SELECT cg.name, to_char(date_trunc('month', v.date), 'YYYY-MM') AS ym, sum(v.amount) AS s
       FROM v_expenses_actual v JOIN category_groups cg ON cg.id = v.group_id
-      WHERE v.date >= ${prevStart} AND v.date <= ${monthEnd(ym)}
+      WHERE v.date >= ${from} AND v.date <= ${monthEnd(ym)}
       GROUP BY 1, 2
     `),
     db.execute(sql`
       SELECT to_char(date_trunc('month', date), 'YYYY-MM') AS ym, sum(amount) AS s
       FROM v_expenses_accrued WHERE src = 'amortization'
-        AND date >= ${prevStart} AND date <= ${monthEnd(ym)}
+        AND date >= ${from} AND date <= ${monthEnd(ym)}
       GROUP BY 1
     `),
   ]);
@@ -695,15 +592,19 @@ export async function getMomTiles(ym: string): Promise<MomTile[]> {
   for (const r of grpRes.rows as any[]) val.set(`${r.name}:${r.ym}`, toNum(r.s));
   for (const r of amortRes.rows as any[]) val.set(`Амортизация:${r.ym}`, toNum(r.s));
 
-  const names = [...MOM_GROUPS.slice(0, 5), 'Покупки', 'Амортизация', 'Поездки'];
-  return names.map((name) => {
-    const current = round2(val.get(`${name}:${ym}`) ?? 0);
-    const p = round2(val.get(`${name}:${prev}`) ?? 0);
-    return {
-      name,
-      current,
-      prev: p,
-      pct: p > 0 ? Math.round(((current - p) / p) * 100) : null,
-    };
-  });
+  const months: MomMonth[] = [];
+  for (let i = 0; i < COUNT; i++) {
+    const cur = monthsBack(ym, i + 1).slice(0, 7);
+    const prev = monthsBack(ym, i + 2).slice(0, 7);
+    months.push({
+      ym: cur,
+      label: `${RU_MONTHS[Number(cur.slice(5, 7)) - 1].toLowerCase()} ${cur.slice(0, 4)}`,
+      rows: MOM_NAMES.map((name) => {
+        const c = val.get(`${name}:${cur}`) ?? 0;
+        const p = val.get(`${name}:${prev}`) ?? 0;
+        return { name, pct: p > 0 ? Math.round(((c - p) / p) * 100) : null };
+      }),
+    });
+  }
+  return months; // от нового к старому
 }

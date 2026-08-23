@@ -7,16 +7,14 @@ import {
   getFundsWidget,
   getHygieneWidget,
   getInflationWidget,
-  getRhythmWidget,
   getAnomalies,
   getCapMonths,
   getFillWidget,
-  getMomTiles,
+  getMomMonths,
   getSavingsNext,
-  getThingsWidget,
   getTrendSeries,
 } from '@/queries/analytics-widgets';
-import { CapexChart, FillYearsBrowser, InflationChart, WeekdayChart, YearHeatmap } from './widget-charts';
+import { FillYearsBrowser, InflationChart } from './widget-charts';
 import { TrendCard } from './AnalyticsView';
 import { fmtMoney, fmtMoneyExact } from '@/lib/money';
 
@@ -50,83 +48,6 @@ export function WidgetSkeleton({ lines = 4, chart = 0 }: { lines?: number; chart
         ))}
       </Stack>
     </Card>
-  );
-}
-
-// ------------------------------------------------------------ вещи
-
-export async function ThingsWidget({ ym }: { ym: string }) {
-  const d = await getThingsWidget(ym);
-  return (
-    <Card>
-      <Stack gap="sm">
-        <CardLabel>Доля покупок в расходах</CardLabel>
-        <CapexChart data={d.capexShare} />
-      </Stack>
-    </Card>
-  );
-}
-
-// ------------------------------------------------------------ ритмы
-
-export async function RhythmWidget({ ym }: { ym: string }) {
-  const d = await getRhythmWidget(ym);
-  return (
-    <>
-      <Card>
-        <Stack gap="sm">
-          <CardLabel>Год на одной карте</CardLabel>
-          <YearHeatmap heat={d.heat} />
-          <Text fz="xs" c="dimmed">
-            Каждая клетка — день; чем темнее, тем дороже. Колонки — недели.
-          </Text>
-        </Stack>
-      </Card>
-      <Card>
-        <Stack gap="sm">
-          <CardLabel>Профиль недели · 6 мес</CardLabel>
-          <WeekdayChart weekday={d.weekday} />
-          <CardLabel>Ритуалы · стабильно каждый месяц</CardLabel>
-          {d.regular.length === 0 ? (
-            <Text fz="sm" c="dimmed">
-              Стабильных ежемесячных трат пока не видно.
-            </Text>
-          ) : (
-            <>
-              <Stack gap={0}>
-                {d.regular.map((r, i) => (
-                  <Row
-                    key={r.name}
-                    last={i === d.regular.length - 1}
-                    left={
-                      <Text fz="sm" truncate>
-                        {r.name}
-                      </Text>
-                    }
-                    right={
-                      <Text fz="sm" className="money" c="dimmed" style={{ flexShrink: 0 }}>
-                        ~{money0(r.avg)}/мес
-                      </Text>
-                    }
-                  />
-                ))}
-              </Stack>
-              <Text fz="xs" c="dimmed">
-                Вместе{' '}
-                <Text span fz="xs" className="money">
-                  ~{money0(d.regular.reduce((s, r) => s + r.avg, 0))}/мес
-                </Text>{' '}
-                ={' '}
-                <Text span fz="xs" className="money">
-                  {money0(d.regular.reduce((s, r) => s + r.avg, 0) * 12)}/год
-                </Text>
-                .
-              </Text>
-            </>
-          )}
-        </Stack>
-      </Card>
-    </>
   );
 }
 
@@ -555,36 +476,40 @@ export async function AnomaliesWidget({ ym }: { ym: string }) {
 // ------------------------------------------------------- месяц к месяцу
 
 export async function MomWidget({ ym }: { ym: string }) {
-  const tiles = await getMomTiles(ym);
+  const months = await getMomMonths(ym);
   return (
-    <SimpleGrid cols={{ base: 2, xs: 4, md: 8 }} spacing="xs">
-      {tiles.map((t) => (
-        <Card key={t.name} padding="xs">
-          <Stack gap={2}>
-            <Text fz="xs" c="dimmed" truncate>
-              {t.name}
+    <SimpleGrid cols={{ base: 1, xs: 2, md: 3 }} spacing="xs">
+      {months.map((m) => (
+        <Card key={m.ym} padding="sm">
+          <Stack gap={4}>
+            <Text fz="xs" fw={700} tt="uppercase" c="dimmed" lts="0.04em">
+              {m.label}
             </Text>
-            <Group gap={6} justify="space-between" wrap="nowrap">
-              <Text fz="sm" fw={600} className="money" truncate>
-                {money0(t.current)}
-              </Text>
-              {t.pct !== null ? (
-                <Text
-                  fz="xs"
-                  fw={700}
-                  className="money"
-                  c={t.pct > 0 ? 'red.7' : t.pct < 0 ? 'teal.8' : 'dimmed'}
-                  style={{ flexShrink: 0 }}
-                >
-                  {t.pct > 0 ? '+' : ''}
-                  {t.pct}%
-                </Text>
-              ) : (
-                <Text fz="xs" c="dimmed" style={{ flexShrink: 0 }}>
-                  —
-                </Text>
-              )}
-            </Group>
+            <Stack gap={2}>
+              {m.rows.map((r) => (
+                <Group key={r.name} justify="space-between" wrap="nowrap" gap="xs">
+                  <Text fz="xs" truncate>
+                    {r.name}
+                  </Text>
+                  {r.pct !== null ? (
+                    <Text
+                      fz="xs"
+                      fw={600}
+                      className="money"
+                      c={r.pct > 0 ? 'red.7' : r.pct < 0 ? 'teal.8' : 'gray.5'}
+                      style={{ flexShrink: 0 }}
+                    >
+                      {r.pct > 0 ? '+' : ''}
+                      {r.pct}%
+                    </Text>
+                  ) : (
+                    <Text fz="xs" c="gray.4" style={{ flexShrink: 0 }}>
+                      —
+                    </Text>
+                  )}
+                </Group>
+              ))}
+            </Stack>
           </Stack>
         </Card>
       ))}
