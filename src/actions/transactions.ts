@@ -269,6 +269,7 @@ const updateInput = z.object({
   categoryId: z.coerce.number().int().positive().nullish(),
   accountId: z.coerce.number().int().positive().nullish(),
   note: z.string().trim().max(500).nullish(),
+  hidden: z.boolean().optional(),
 });
 
 export async function updateTransaction(raw: z.input<typeof updateInput>): Promise<ActionResult> {
@@ -296,6 +297,7 @@ export async function updateTransaction(raw: z.input<typeof updateInput>): Promi
           : {}),
         ...(input.accountId !== undefined ? { accountId: input.accountId } : {}),
         ...(input.note !== undefined ? { note: input.note || null } : {}),
+        ...(input.hidden !== undefined ? { hidden: input.hidden } : {}),
         updatedAt: new Date(),
       })
       .where(eq(transactions.id, input.id));

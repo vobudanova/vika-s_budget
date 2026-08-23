@@ -133,6 +133,8 @@ export async function sendCapPayment(raw: z.input<typeof paymentInput>): Promise
           kind: 'transfer',
           accountId: input.fromAccountId,
           counterAccountId: capAccount.id,
+          // авто-платёж не должен вмешиваться в таблицы месяца/года
+          hidden: true,
           note: `Платёж КАП (${pending.length} взн.)`,
         })
         .returning();

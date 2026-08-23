@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import {
   ActionIcon,
   Button,
+  Checkbox,
   Group,
   Select,
   Stack,
@@ -53,7 +54,8 @@ export function TxList({
 
 function TxLine({ t, showDate, last, onEdit }: { t: TxRow; showDate: boolean; last?: boolean; onEdit: () => void }) {
   const [pending, startTransition] = useTransition();
-  const { title, detail } = txLabel(t);
+  const { title, detail: baseDetail } = txLabel(t);
+  const detail = [baseDetail, t.hidden ? 'скрыто из таблиц' : null].filter(Boolean).join(' · ');
   const sign = txSign(t);
   // Расходы показываем как введены (возврат — отрицательный, зелёный),
   // приходы — со знаком «+», внутренние переводы — как есть.
@@ -127,6 +129,7 @@ function EditModal({ t, onClose }: { t: TxRow | null; onClose: () => void }) {
   const [date, setDate] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
+  const [hidden, setHidden] = useState(false);
   const [refs, setRefs] = useState<EditRefs | null>(null);
 
   // Синхронизация при открытии; выражение показывается как введено («300+500-200»)
@@ -137,6 +140,7 @@ function EditModal({ t, onClose }: { t: TxRow | null; onClose: () => void }) {
     setDate(t.date);
     setCategoryId(t.categoryId ? String(t.categoryId) : null);
     setAccountId(t.accountId ? String(t.accountId) : null);
+    setHidden(t.hidden);
   }, [t]);
 
   // Справочники подгружаются один раз при первом открытии
@@ -154,6 +158,7 @@ function EditModal({ t, onClose }: { t: TxRow | null; onClose: () => void }) {
         date,
         ...(t.kind === 'expense' && categoryId ? { categoryId: Number(categoryId) } : {}),
         ...(accountId ? { accountId: Number(accountId) } : {}),
+        ...(['transfer', 'saving'].includes(t.kind) ? { hidden } : {}),
       });
       if (!res.ok) {
         notifications.show({ color: 'red', message: res.error });
@@ -222,6 +227,14 @@ function EditModal({ t, onClose }: { t: TxRow | null; onClose: () => void }) {
           className="money"
         />
         <TextInput label="Заметка" value={note} onChange={(e) => setNote(e.currentTarget.value)} />
+        {t && ['transfer', 'saving'].includes(t.kind) && (
+          <Checkbox
+            label="Не учитывать в таблицах месяца и года"
+            description="Операция остаётся в ленте дня и в балансах счетов"
+            checked={hidden}
+            onChange={(e) => setHidden(e.currentTarget.checked)}
+          />
+        )}
         <Group justify="space-between">
           <Button variant="subtle" color="red" onClick={remove}>
             Удалить

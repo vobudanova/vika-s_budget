@@ -308,6 +308,8 @@ export const transactions = pgTable(
     amountExpr: text('amount_expr'),
     // теневой расход: покрыт внешней компенсацией, в итоги расходов не входит (вопрос №22)
     covered: boolean('covered').notNull().default(false),
+    // скрыто из таблиц месяца/года (переводы/сбережения); лента дня и балансы не меняются
+    hidden: boolean('hidden').notNull().default(false),
     note: text('note'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

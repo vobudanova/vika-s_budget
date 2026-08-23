@@ -81,7 +81,7 @@ export async function getCellBreakdown(
         await db.execute(sql`
           SELECT t.date, ca.name AS label, t.note AS sub, t.amount AS s
           FROM transactions t JOIN accounts ca ON ca.id = t.counter_account_id
-          WHERE t.kind = 'transfer' AND t.date BETWEEN ${from} AND ${to}
+          WHERE t.kind = 'transfer' AND NOT t.hidden AND t.date BETWEEN ${from} AND ${to}
             AND ${row ? sql`ca.type = ${row}` : sql`true`}
           ORDER BY t.date, t.id`),
       );
@@ -128,7 +128,7 @@ export async function getCellBreakdown(
         await db.execute(sql`
           SELECT t.date, ca.name AS label, COALESCE(t.acquired_note, t.note) AS sub, t.amount AS s
           FROM transactions t JOIN accounts ca ON ca.id = t.counter_account_id
-          WHERE t.kind = 'saving' AND t.date BETWEEN ${from} AND ${to}
+          WHERE t.kind = 'saving' AND NOT t.hidden AND t.date BETWEEN ${from} AND ${to}
             AND ${row ? sql`ca.name = ${row}` : sql`true`}
           ORDER BY t.date, t.id`),
       );

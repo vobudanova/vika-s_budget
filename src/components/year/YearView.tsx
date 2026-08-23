@@ -36,6 +36,8 @@ export function YearView({ data, year }: { data: YearSheet; year: number }) {
     return {
       key: i + 1,
       label: RU_MONTHS[i].slice(0, 3),
+      // клик по месяцу в шапке открывает страницу месяца
+      href: `/month/${year}-${String(i + 1).padStart(2, '0')}`,
       // месяц подсвечен, когда «день заполнен» отмечен на каждом его дне
       highlight: data.filledMonths[i + 1] >= daysInMonth,
     };

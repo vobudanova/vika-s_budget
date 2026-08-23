@@ -219,7 +219,7 @@ export function SheetTable({
                   }}
                 >
                   {c.href ? (
-                    <Text component={Link} href={c.href} fz={HEAD_FZ} fw={600} c="ink.6" td="none">
+                    <Text component={Link} href={c.href} fz={HEAD_FZ} fw={600} c="ink.6" td="none" tt="capitalize">
                       {c.label}
                     </Text>
                   ) : (

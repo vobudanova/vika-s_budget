@@ -95,6 +95,7 @@ export type TxRow = {
   kind: string;
   note: string | null;
   covered: boolean;
+  hidden: boolean;
   amountExpr: string | null;
   acquiredNote: string | null;
   fundAllocation: string | null;
@@ -113,7 +114,7 @@ export type TxRow = {
 
 export async function getTransactions(where: ReturnType<typeof sql>, limit?: number): Promise<TxRow[]> {
   const rows = await db.execute(sql`
-    SELECT t.id, t.date, t.amount, t.amount_expr, t.kind, t.note, t.covered, t.acquired_note, t.fund_allocation,
+    SELECT t.id, t.date, t.amount, t.amount_expr, t.kind, t.note, t.covered, t.hidden, t.acquired_note, t.fund_allocation,
            t.category_id, c.name AS category_name, cg.name AS group_name,
            t.account_id, a.name AS account_name,
            t.counter_account_id, ca.name AS counter_account_name,
@@ -142,6 +143,7 @@ function mapTx(r: any): TxRow {
     kind: r.kind,
     note: r.note,
     covered: r.covered,
+    hidden: !!r.hidden,
     amountExpr: r.amount_expr,
     acquiredNote: r.acquired_note,
     fundAllocation: r.fund_allocation,

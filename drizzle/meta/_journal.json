@@ -43,6 +43,13 @@
       "when": 1787415000001,
       "tag": "0005_orphan_purchases",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787415000002,
+      "tag": "0006_tx_hidden",
+      "breakpoints": true
     }
   ]
 }

@@ -61,7 +61,7 @@ export async function getMonthSheet(ym: string): Promise<MonthSheet> {
       db.execute(sql`
         SELECT ca.type AS counter_type, EXTRACT(DAY FROM t.date)::int AS d, sum(t.amount) AS s
         FROM transactions t JOIN accounts ca ON ca.id = t.counter_account_id
-        WHERE t.kind = 'transfer' AND t.date BETWEEN ${from} AND ${to}
+        WHERE t.kind = 'transfer' AND NOT t.hidden AND t.date BETWEEN ${from} AND ${to}
         GROUP BY 1, 2
       `),
       db.execute(sql`
@@ -73,7 +73,7 @@ export async function getMonthSheet(ym: string): Promise<MonthSheet> {
       db.execute(sql`
         SELECT ca.name AS counter_name, EXTRACT(DAY FROM t.date)::int AS d, sum(t.amount) AS s
         FROM transactions t JOIN accounts ca ON ca.id = t.counter_account_id
-        WHERE t.kind = 'saving' AND t.date BETWEEN ${from} AND ${to}
+        WHERE t.kind = 'saving' AND NOT t.hidden AND t.date BETWEEN ${from} AND ${to}
         GROUP BY 1, 2
       `),
       db.execute(sql`SELECT EXTRACT(DAY FROM date)::int AS d FROM filled_days WHERE date BETWEEN ${from} AND ${to}`),
