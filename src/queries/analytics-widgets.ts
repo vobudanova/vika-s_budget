@@ -606,5 +606,5 @@ export async function getMomMonths(ym: string): Promise<MomMonth[]> {
       }),
     });
   }
-  return months; // от нового к старому
+  return months.reverse(); // слева сверху самый ранний, справа снизу текущий
 }
