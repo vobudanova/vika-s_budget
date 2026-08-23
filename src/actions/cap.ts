@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { and, eq, gte, isNull, lte } from 'drizzle-orm';
+import { and, eq, gte, isNull, lte, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { db, schema } from '@/db';
 import { monthEnd, monthStart, todayISO, ymOf, isValidYM } from '@/lib/dates';
@@ -77,8 +77,21 @@ export async function toggleCapContribution(
         ),
       );
     } else {
-      const amount = input.amount ? parseAmountExpr(input.amount) : toNum(goal.monthlyContribution);
+      let amount = input.amount ? parseAmountExpr(input.amount) : toNum(goal.monthlyContribution);
       if (!amount || amount <= 0) return { ok: false, error: 'Некорректная сумма взноса' };
+      if (!input.amount) {
+        // последний взнос добирает копеечный остаток до цели (месячный взнос
+        // округлён, и N×взнос не сходится с целью — как 12×265,83 ≠ 3 190,00);
+        // а если осталось меньше месячного — не переливаем сверх цели
+        const [led] = (
+          await db
+            .select({ s: sql<string>`COALESCE(sum(${capMovements.amount}), 0)` })
+            .from(capMovements)
+            .where(eq(capMovements.capGoalId, input.goalId))
+        );
+        const remaining = round2(toNum(goal.targetAmount) - toNum(led?.s));
+        if (remaining > 0 && remaining <= amount + 1) amount = remaining;
+      }
       const today = todayISO();
       const date = ymOf(today) === input.ym ? today : monthStart(input.ym);
       await db.insert(capMovements).values({
