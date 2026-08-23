@@ -148,7 +148,7 @@ export function InflationChart({
 
 /** Карта заполненности года: зелёно-лососёвая — день отмечен, оранжевая —
     операции без отметки, серая — пусто; будущие дни не рисуются. */
-export function FillHeatmap({ days }: { days: { date: string; status: 0 | 1 | 2 }[] }) {
+export function FillHeatmap({ year, days }: { year: number; days: { date: string; status: 0 | 1 | 2 }[] }) {
   if (days.length === 0)
     return (
       <Text fz="sm" c="dimmed">
@@ -156,8 +156,6 @@ export function FillHeatmap({ days }: { days: { date: string; status: 0 | 1 | 2 
       </Text>
     );
   const byDate = new Map(days.map((d) => [d.date, d.status]));
-  const first = new Date(days[0].date);
-  const last = new Date(days[days.length - 1].date);
 
   const STATUS_BG = [
     'var(--mantine-color-gray-2)', // пусто
@@ -166,16 +164,14 @@ export function FillHeatmap({ days }: { days: { date: string; status: 0 | 1 | 2 
   ];
   const STATUS_LABEL = ['пусто', 'есть операции, нет отметки', 'заполнен'];
 
+  // всегда полный год: январь–декабрь, дни вне данных — пустые ячейки
   const months: { key: string; label: string; weeks: (Date | null)[][] }[] = [];
-  const mCursor = new Date(first.getFullYear(), first.getMonth(), 1);
-  while (mCursor <= last) {
-    const y = mCursor.getFullYear();
-    const mo = mCursor.getMonth();
-    const daysCnt = new Date(y, mo + 1, 0).getDate();
+  for (let mo = 0; mo < 12; mo++) {
+    const daysCnt = new Date(year, mo + 1, 0).getDate();
     const weeks: (Date | null)[][] = [];
-    let week: (Date | null)[] = new Array((new Date(y, mo, 1).getDay() + 6) % 7).fill(null);
+    let week: (Date | null)[] = new Array((new Date(year, mo, 1).getDay() + 6) % 7).fill(null);
     for (let d = 1; d <= daysCnt; d++) {
-      week.push(new Date(y, mo, d));
+      week.push(new Date(year, mo, d));
       if (week.length === 7) {
         weeks.push(week);
         week = [];
@@ -185,8 +181,7 @@ export function FillHeatmap({ days }: { days: { date: string; status: 0 | 1 | 2 
       while (week.length < 7) week.push(null);
       weeks.push(week);
     }
-    months.push({ key: `${y}-${mo}`, label: RU_MONTHS[mo].slice(0, 3), weeks });
-    mCursor.setMonth(mo + 1);
+    months.push({ key: `${year}-${mo}`, label: RU_MONTHS[mo].slice(0, 3), weeks });
   }
 
   const cell = { width: '100%', aspectRatio: '1 / 1', borderRadius: 3 } as const;

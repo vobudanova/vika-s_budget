@@ -515,5 +515,100 @@ export async function getFillWidget(): Promise<FillWidgetData> {
   flush();
   gaps.sort((a, b) => b.days - a.days);
 
-  return { years, gaps: gaps.slice(0, 5) };
+  return { years, gaps: gaps.slice(0, 30) };
+}
+
+// ------------------------------------------------------------ сверка КАП
+
+export type CapCheckWidgetData = {
+  /** месяцы, где сумма переводов на счёт КАП не сошлась со взносами-флажками */
+  mismatches: { ym: string; label: string; transfers: number; contribs: number; diff: number }[];
+  monthsChecked: number;
+  totalTransfers: number;
+  totalContribs: number;
+  totalDiff: number;
+};
+
+export async function getCapCheckWidget(): Promise<CapCheckWidgetData> {
+  const [trRes, cRes] = await Promise.all([
+    db.execute(sql`
+      SELECT to_char(date_trunc('month', t.date), 'YYYY-MM') AS ym, sum(t.amount) AS s
+      FROM transactions t JOIN accounts ca ON ca.id = t.counter_account_id
+      WHERE t.kind = 'transfer' AND ca.type = 'savings_cap'
+      GROUP BY 1
+    `),
+    db.execute(sql`
+      SELECT to_char(date_trunc('month', m.date), 'YYYY-MM') AS ym, sum(m.amount) AS s
+      FROM cap_movements m WHERE m.source = 'own_funds'
+      GROUP BY 1
+    `),
+  ]);
+  const transfers = new Map((trRes.rows as any[]).map((r) => [String(r.ym), toNum(r.s)]));
+  const contribs = new Map((cRes.rows as any[]).map((r) => [String(r.ym), toNum(r.s)]));
+  const yms = [...new Set([...transfers.keys(), ...contribs.keys()])].sort();
+
+  const monthLabel = (ym: string) =>
+    `${RU_MONTHS[Number(ym.slice(5, 7)) - 1].toLowerCase()} ${ym.slice(0, 4)}`;
+  const mismatches = yms
+    .map((ym) => {
+      const t = round2(transfers.get(ym) ?? 0);
+      const c = round2(contribs.get(ym) ?? 0);
+      return { ym, label: monthLabel(ym), transfers: t, contribs: c, diff: round2(t - c) };
+    })
+    .filter((m) => Math.abs(m.diff) > 0.005)
+    .reverse();
+
+  const totalTransfers = round2([...transfers.values()].reduce((s, v) => s + v, 0));
+  const totalContribs = round2([...contribs.values()].reduce((s, v) => s + v, 0));
+  return {
+    mismatches,
+    monthsChecked: yms.length,
+    totalTransfers,
+    totalContribs,
+    totalDiff: round2(totalTransfers - totalContribs),
+  };
+}
+
+// ------------------------------------------------------ сверка амортизации
+
+export type AmortCheckWidgetData = {
+  /** активные вещи, у которых график начислений бьётся с ценой или сроком */
+  broken: { name: string; price: number; scheduled: number; diff: number; countDiff: number }[];
+  okCount: number;
+  totalAssets: number;
+};
+
+export async function getAmortCheckWidget(): Promise<AmortCheckWidgetData> {
+  const res = await db.execute(sql`
+    SELECT a.name,
+           a.initial_price + COALESCE(adj.s, 0) AS price,
+           COALESCE(acc.s, 0) AS scheduled,
+           COALESCE(acc.cnt, 0) AS cnt,
+           a.term_months
+    FROM assets a
+    LEFT JOIN LATERAL (SELECT sum(amount) AS s FROM asset_adjustments WHERE asset_id = a.id) adj ON true
+    LEFT JOIN LATERAL (
+      SELECT sum(amount) AS s, count(*) AS cnt FROM amortization_accruals WHERE asset_id = a.id
+    ) acc ON true
+    WHERE a.disposed_at IS NULL
+  `);
+  const rows = (res.rows as any[]).map((r) => ({
+    name: String(r.name),
+    price: round2(toNum(r.price)),
+    scheduled: round2(toNum(r.scheduled)),
+    cnt: Number(r.cnt),
+    term: Number(r.term_months),
+  }));
+  const broken = rows
+    .filter((r) => Math.abs(r.scheduled - r.price) > 0.01 || r.cnt !== r.term)
+    .map((r) => ({
+      name: r.name,
+      price: r.price,
+      scheduled: r.scheduled,
+      diff: round2(r.scheduled - r.price),
+      countDiff: r.cnt - r.term,
+    }))
+    .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
+    .slice(0, 20);
+  return { broken, okCount: rows.length - broken.length, totalAssets: rows.length };
 }

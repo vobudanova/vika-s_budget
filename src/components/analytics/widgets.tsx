@@ -8,15 +8,18 @@ import {
   getHygieneWidget,
   getInflationWidget,
   getRhythmWidget,
+  getAmortCheckWidget,
+  getCapCheckWidget,
   getFillWidget,
   getThingsWidget,
   getTrendSeries,
 } from '@/queries/analytics-widgets';
 import { CapexChart, FillHeatmap, InflationChart, WeekdayChart, YearHeatmap } from './widget-charts';
 import { TrendCard } from './AnalyticsView';
-import { fmtMoney } from '@/lib/money';
+import { fmtMoney, fmtMoneyExact } from '@/lib/money';
 
 const money0 = (v: number) => fmtMoney(Math.round(v));
+const moneyE = (v: number) => fmtMoneyExact(v);
 
 function Row({ left, right, last }: { left: React.ReactNode; right: React.ReactNode; last?: boolean }) {
   return (
@@ -550,7 +553,7 @@ export async function FillWidget() {
                     отмечено {y.filled} из {y.passed} ({Math.round((y.filled / Math.max(y.passed, 1)) * 100)}%)
                   </Text>
                 </Group>
-                <FillHeatmap days={y.days} />
+                <FillHeatmap year={y.year} days={y.days} />
               </Stack>
             ))}
             <Group gap="md">
@@ -590,6 +593,112 @@ export async function FillWidget() {
                 </Stack>
               </>
             )}
+          </>
+        )}
+      </Stack>
+    </Card>
+  );
+}
+
+// ------------------------------------------------------------ сверка КАП
+
+export async function CapCheckWidget() {
+  const d = await getCapCheckWidget();
+  const ok = d.mismatches.length === 0;
+  return (
+    <Card>
+      <Stack gap="sm">
+        <CardLabel>Сверка КАП · переводы и взносы</CardLabel>
+        {ok ? (
+          <Text fz="sm" c="teal.8">
+            Переводы на счёт КАП совпадают со взносами до копейки во всех месяцах ({d.monthsChecked}) ✓
+          </Text>
+        ) : (
+          <>
+            <Text fz="xs" c="dimmed">
+              Месяцы, где сумма переводов на счёт КАП не сошлась с проставленными взносами:
+            </Text>
+            <Stack gap={0}>
+              {d.mismatches.map((m, i) => (
+                <Row
+                  key={m.ym}
+                  last={i === d.mismatches.length - 1}
+                  left={
+                    <Stack gap={2} style={{ minWidth: 0 }}>
+                      <Text fz="sm" fw={500}>
+                        {m.label}
+                      </Text>
+                      <Text fz="xs" c="dimmed" className="money">
+                        переводы {moneyE(m.transfers)} · взносы {moneyE(m.contribs)}
+                      </Text>
+                    </Stack>
+                  }
+                  right={
+                    <Text fz="sm" fw={600} className="money" c={m.diff > 0 ? 'orange.8' : 'red.8'} style={{ flexShrink: 0 }}>
+                      {m.diff > 0 ? '+' : ''}
+                      {moneyE(m.diff)}
+                    </Text>
+                  }
+                />
+              ))}
+            </Stack>
+          </>
+        )}
+        <Text fz="xs" c="dimmed" className="money">
+          Всего переводов {moneyE(d.totalTransfers)} · взносов {moneyE(d.totalContribs)}
+          {Math.abs(d.totalDiff) > 0.005 ? ` · разница ${d.totalDiff > 0 ? '+' : ''}${moneyE(d.totalDiff)}` : ' · сходится ✓'}
+        </Text>
+      </Stack>
+    </Card>
+  );
+}
+
+// ------------------------------------------------------ сверка амортизации
+
+export async function AmortCheckWidget() {
+  const d = await getAmortCheckWidget();
+  return (
+    <Card>
+      <Stack gap="sm">
+        <CardLabel>Сверка амортизации</CardLabel>
+        {d.broken.length === 0 ? (
+          <Text fz="sm" c="teal.8">
+            Графики начислений всех вещей ({d.totalAssets}) сходятся с ценами до копейки ✓
+          </Text>
+        ) : (
+          <>
+            <Text fz="xs" c="dimmed">
+              Вещи, у которых график начислений бьётся с ценой или сроком:
+            </Text>
+            <Stack gap={0}>
+              {d.broken.map((b, i) => (
+                <Row
+                  key={b.name}
+                  last={i === d.broken.length - 1}
+                  left={
+                    <Stack gap={2} style={{ minWidth: 0 }}>
+                      <Text fz="sm" fw={500} truncate>
+                        {b.name}
+                      </Text>
+                      <Text fz="xs" c="dimmed" className="money">
+                        график {moneyE(b.scheduled)} · цена {moneyE(b.price)}
+                        {b.countDiff !== 0 ? ` · платежей ${b.countDiff > 0 ? '+' : ''}${b.countDiff}` : ''}
+                      </Text>
+                    </Stack>
+                  }
+                  right={
+                    <Text fz="sm" fw={600} className="money" c="red.8" style={{ flexShrink: 0 }}>
+                      {b.diff > 0 ? '+' : ''}
+                      {moneyE(b.diff)}
+                    </Text>
+                  }
+                />
+              ))}
+            </Stack>
+            <Text fz="xs" c="dimmed">
+              Остальные {d.okCount} из {d.totalAssets} сходятся. Пересоздать график можно через
+              «Редактировать…» на странице Амортизации.
+            </Text>
           </>
         )}
       </Stack>

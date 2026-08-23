@@ -3,6 +3,8 @@ import { Group, SimpleGrid, Stack, Title } from '@mantine/core';
 import { todayISO, ymOf } from '@/lib/dates';
 import { AnalyticsNav } from '@/components/analytics/AnalyticsNav';
 import {
+  AmortCheckWidget,
+  CapCheckWidget,
   FillWidget,
   ForecastWidget,
   FundsWidget,
@@ -51,6 +53,14 @@ export default function AnalyticsTrendsPage() {
       <Suspense fallback={<WidgetSkeleton chart={90} lines={4} />}>
         <FillWidget />
       </Suspense>
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+        <Suspense fallback={<WidgetSkeleton lines={5} />}>
+          <CapCheckWidget />
+        </Suspense>
+        <Suspense fallback={<WidgetSkeleton lines={5} />}>
+          <AmortCheckWidget />
+        </Suspense>
+      </SimpleGrid>
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
         <Suspense
           fallback={
