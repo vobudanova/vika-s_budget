@@ -564,8 +564,8 @@ export async function getSavingsNext(): Promise<SavingsNextData> {
 
 // ------------------------------------------------------- месяц к месяцу
 
-export type MomMonthRow = { name: string; pct: number | null };
-export type MomMonth = { ym: string; label: string; rows: MomMonthRow[] };
+export type MomMonthRow = { name: string; pct: number | null; current: number; prev: number };
+export type MomMonth = { ym: string; label: string; prevLabel: string; rows: MomMonthRow[] };
 
 const MOM_NAMES = ['Питание', 'Красота', 'Транспорт', 'Бабушки', 'Прочее', 'Покупки', 'Амортизация', 'Поездки'];
 
@@ -599,10 +599,11 @@ export async function getMomMonths(ym: string): Promise<MomMonth[]> {
     months.push({
       ym: cur,
       label: `${RU_MONTHS[Number(cur.slice(5, 7)) - 1].toLowerCase()} ${cur.slice(0, 4)}`,
+      prevLabel: RU_MONTHS[Number(prev.slice(5, 7)) - 1].toLowerCase().slice(0, 3),
       rows: MOM_NAMES.map((name) => {
-        const c = val.get(`${name}:${cur}`) ?? 0;
-        const p = val.get(`${name}:${prev}`) ?? 0;
-        return { name, pct: p > 0 ? Math.round(((c - p) / p) * 100) : null };
+        const c = round2(val.get(`${name}:${cur}`) ?? 0);
+        const p = round2(val.get(`${name}:${prev}`) ?? 0);
+        return { name, pct: p > 0 ? Math.round(((c - p) / p) * 100) : null, current: c, prev: p };
       }),
     });
   }

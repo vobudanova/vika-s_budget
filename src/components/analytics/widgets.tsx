@@ -1,4 +1,4 @@
-import { Badge, Card, Group, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core';
+import { Badge, Card, Group, SimpleGrid, Skeleton, Stack, Text, Tooltip } from '@mantine/core';
 import { CardLabel } from '@/components/CardLabel';
 import { Money } from '@/components/Money';
 import {
@@ -491,22 +491,27 @@ export async function MomWidget({ ym }: { ym: string }) {
                   <Text fz="xs" truncate>
                     {r.name}
                   </Text>
-                  {r.pct !== null ? (
-                    <Text
-                      fz="xs"
-                      fw={600}
-                      className="money"
-                      c={r.pct > 0 ? 'red.7' : r.pct < 0 ? 'teal.8' : 'gray.5'}
-                      style={{ flexShrink: 0 }}
-                    >
-                      {r.pct > 0 ? '+' : ''}
-                      {r.pct}%
-                    </Text>
-                  ) : (
-                    <Text fz="xs" c="gray.4" style={{ flexShrink: 0 }}>
-                      —
-                    </Text>
-                  )}
+                  <Tooltip
+                    label={`${money0(r.current)} против ${money0(r.prev)} в ${m.prevLabel}`}
+                    openDelay={150}
+                  >
+                    {r.pct !== null ? (
+                      <Text
+                        fz="xs"
+                        fw={600}
+                        className="money"
+                        c={r.pct > 0 ? 'red.7' : r.pct < 0 ? 'teal.8' : 'gray.5'}
+                        style={{ flexShrink: 0 }}
+                      >
+                        {r.pct > 0 ? '+' : ''}
+                        {r.pct}%
+                      </Text>
+                    ) : (
+                      <Text fz="xs" c="gray.4" style={{ flexShrink: 0 }}>
+                        —
+                      </Text>
+                    )}
+                  </Tooltip>
                 </Group>
               ))}
             </Stack>
