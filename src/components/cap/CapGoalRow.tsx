@@ -125,13 +125,23 @@ export function CapGoalRow({
                 const flag = goal.monthsFlags[ym];
                 // до покупки и в будущем взнос невозможен — флажок заблокирован
                 const locked = ym < startYm || ym > currentYm;
-                const checked = !!flag;
+                const checked = !!flag && (flag.amount > 0 || flag.inflow > 0);
+                // месяц «закрыт», когда поступления (взнос + перетоки) покрыли месячный КАП
+                const total = flag ? round2(flag.amount + flag.inflow) : 0;
+                const coveredByInflow = !!flag && !flag.sent && flag.inflow > 0 && total >= goal.monthly - 1;
+                const dark = !!flag && (flag.sent || coveredByInflow);
                 return (
                   <Tooltip
                     key={ym}
                     label={
                       checked
-                        ? `${fmtMoneyExact(flag!.amount)}${flag!.sent ? ' · отправлен' : ' · не отправлен'}`
+                        ? `${fmtMoneyExact(total)}${
+                            flag!.sent
+                              ? ' · отправлен'
+                              : coveredByInflow
+                                ? ' · закрыт перераспределением'
+                                : ' · не отправлен'
+                          }`
                         : locked
                           ? ym < startYm
                             ? 'До покупки'
@@ -153,14 +163,14 @@ export function CapGoalRow({
                         alignItems: 'center',
                         justifyContent: 'center',
                         background: checked
-                          ? flag!.sent
+                          ? dark
                             ? 'var(--mantine-color-ink-7)'
                             : 'var(--mantine-color-ink-1)'
                           : locked
                             ? 'var(--mantine-color-gray-0)'
                             : 'var(--mantine-color-gray-1)',
                         color: checked
-                          ? flag!.sent
+                          ? dark
                             ? '#fff'
                             : 'var(--mantine-color-ink-8)'
                           : locked
@@ -170,7 +180,7 @@ export function CapGoalRow({
                       }}
                     >
                       {busyYm === ym ? (
-                        <Loader size={11} color={flag?.sent ? 'white' : 'ink'} />
+                        <Loader size={11} color={dark ? 'white' : 'ink'} />
                       ) : (
                         RU_MONTH_SHORT[m - 1]
                       )}

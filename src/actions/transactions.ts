@@ -113,9 +113,18 @@ export async function createIncome(raw: z.input<typeof incomeInput>): Promise<Ac
  */
 const compensationInput = z.object({
   date: dateSchema,
-  spentAmount: amountSchema,
   receivedAmount: amountSchema,
-  categoryId: z.coerce.number().int().positive('Выберите категорию траты'),
+  // теневая трата часто покрывает несколько покупок — позиции со своими
+  // категориями, суммами и заметками
+  items: z
+    .array(
+      z.object({
+        categoryId: z.coerce.number().int().positive('Выберите категорию траты'),
+        amount: amountSchema,
+        note: z.string().trim().max(500).optional(),
+      }),
+    )
+    .min(1, 'Добавьте хотя бы одну позицию'),
   accountId: z.coerce.number().int().positive('Счёт списания'),
   counterAccountId: z.coerce.number().int().positive('Счёт зачисления'),
   incomeSourceId: z.coerce.number().int().positive(),
@@ -127,26 +136,34 @@ export async function createCompensation(
 ): Promise<ActionResult> {
   try {
     const input = compensationInput.parse(raw);
-    if (input.receivedAmount < input.spentAmount) {
+    const spentTotal =
+      Math.round(input.items.reduce((s, it) => s + it.amount, 0) * 100) / 100;
+    if (input.receivedAmount < spentTotal) {
       return { ok: false, error: 'Получено меньше, чем потрачено — это не компенсация' };
     }
-    const surplus = Math.round((input.receivedAmount - input.spentAmount) * 100) / 100;
+    const surplus = Math.round((input.receivedAmount - spentTotal) * 100) / 100;
     await db.transaction(async (tx) => {
+      for (const it of input.items) {
+        await tx.insert(transactions).values({
+          date: input.date,
+          amount: String(it.amount),
+          kind: 'expense',
+          categoryId: it.categoryId,
+          accountId: input.accountId,
+          covered: true,
+          note: it.note ? `${it.note} (покрыто компенсацией)` : 'Покрыто компенсацией',
+        });
+      }
       await tx.insert(transactions).values({
         date: input.date,
-        amount: String(input.spentAmount),
-        kind: 'expense',
-        categoryId: input.categoryId,
-        accountId: input.accountId,
-        covered: true,
-        note: input.note ? `${input.note} (покрыто компенсацией)` : 'Покрыто компенсацией',
-      });
-      await tx.insert(transactions).values({
-        date: input.date,
-        amount: String(input.spentAmount),
+        amount: String(spentTotal),
         kind: 'coverage_in',
         counterAccountId: input.counterAccountId,
-        note: 'Покрытие теневой траты',
+        note: input.note
+          ? `Покрытие теневой траты · ${input.note}`
+          : input.items.length > 1
+            ? `Покрытие теневой траты (${input.items.length} позиции)`
+            : 'Покрытие теневой траты',
       });
       if (surplus > 0) {
         await tx.insert(transactions).values({

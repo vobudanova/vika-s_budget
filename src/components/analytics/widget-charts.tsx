@@ -2,7 +2,7 @@
 
 import { BarChart, LineChart } from '@mantine/charts';
 import { useState } from 'react';
-import { ActionIcon, Box, Group, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, Box, Group, Text, Tooltip, UnstyledButton } from '@mantine/core';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { fmtMoney } from '@/lib/money';
 import { RU_MONTHS, RU_MONTHS_GEN } from '@/lib/dates';
@@ -127,25 +127,81 @@ export function CapexChart({ data }: { data: { label: string; pct: number }[] })
 
 const INFLATION_COLORS = ['ink.5', 'violet.4', 'teal.6', 'orange.5', 'blue.4', 'grape.4'];
 
+/** Средние чеки по категориям; клик по чипу скрывает/показывает линию. */
 export function InflationChart({
   series,
   names,
+  changes,
 }: {
   series: Record<string, string | number | null>[];
   names: string[];
+  changes: Record<string, number | null>;
 }) {
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const toggle = (name: string) =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else if (next.size < names.length - 1) next.add(name); // хотя бы одна линия остаётся
+      return next;
+    });
+  const visible = names.filter((n) => !hidden.has(n));
   return (
-    <LineChart
-      h={200}
-      data={series}
-      dataKey="label"
-      series={names.map((name, i) => ({ name, color: INFLATION_COLORS[i % INFLATION_COLORS.length] }))}
-      curveType="monotone"
-      connectNulls
-      withLegend
-      legendProps={{ verticalAlign: 'bottom', height: 48 }}
-      valueFormatter={(v) => fmtMoney(Math.round(v))}
-    />
+    <>
+      <Group gap={6} wrap="wrap">
+        {names.map((name, i) => {
+          const off = hidden.has(name);
+          const change = changes[name];
+          return (
+            <UnstyledButton
+              key={name}
+              onClick={() => toggle(name)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '3px 10px',
+                borderRadius: 999,
+                border: '1px solid var(--ink-line)',
+                background: off ? 'transparent' : 'var(--mantine-color-gray-0)',
+                opacity: off ? 0.45 : 1,
+              }}
+              aria-pressed={!off}
+            >
+              <span
+                style={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: '50%',
+                  background: `var(--mantine-color-${INFLATION_COLORS[i % INFLATION_COLORS.length].replace('.', '-')})`,
+                }}
+              />
+              <Text fz="xs" td={off ? 'line-through' : undefined}>
+                {name}
+              </Text>
+              {change !== null && change !== undefined && !off && (
+                <Text fz="xs" fw={600} className="money" c={change > 0 ? 'red.7' : 'teal.8'}>
+                  {change > 0 ? '+' : ''}
+                  {change}%
+                </Text>
+              )}
+            </UnstyledButton>
+          );
+        })}
+      </Group>
+      <LineChart
+        h={200}
+        data={series}
+        dataKey="label"
+        series={visible.map((name) => ({
+          name,
+          color: INFLATION_COLORS[names.indexOf(name) % INFLATION_COLORS.length],
+        }))}
+        curveType="monotone"
+        connectNulls
+        valueFormatter={(v) => fmtMoney(Math.round(v))}
+      />
+    </>
   );
 }
 

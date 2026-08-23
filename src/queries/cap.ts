@@ -16,7 +16,7 @@ export type CapGoalOverview = {
   status: CapStatus;
   behindAmount: number;
   waitUntil: string | null; // конец месяца последнего взноса
-  monthsFlags: Record<string, { amount: number; sent: boolean }>; // ym -> взнос (за все годы)
+  monthsFlags: Record<string, { amount: number; sent: boolean; inflow: number }>; // ym -> взнос + перетоки
   spentAt: string | null;
   assetId: number | null;
   assetCategoryName: string | null;
@@ -72,14 +72,23 @@ export async function getCapOverview(): Promise<CapOverview> {
     const firstOwnYm = own.length ? ymOf(own[0].date) : null;
     const lastOwn = own.length ? own[own.length - 1] : null;
 
-    const monthsFlags: Record<string, { amount: number; sent: boolean }> = {};
+    const monthsFlags: Record<string, { amount: number; sent: boolean; inflow: number }> = {};
     for (const m of own) {
       const ym = ymOf(m.date);
-      const prev = monthsFlags[ym] ?? { amount: 0, sent: false };
+      const prev = monthsFlags[ym] ?? { amount: 0, sent: false, inflow: 0 };
       monthsFlags[ym] = {
+        ...prev,
         amount: round2(prev.amount + m.amount),
         sent: prev.sent || m.transactionId !== null,
       };
+    }
+    // перетоки из других КАП и перерасчёты закрывают месяц без флажка:
+    // если сумма поступлений месяца покрыла месячный взнос, флажок темнеет
+    for (const m of mine) {
+      if (!['from_cap', 'recalc'].includes(m.source) || m.amount <= 0) continue;
+      const ym = ymOf(m.date);
+      const prev = monthsFlags[ym] ?? { amount: 0, sent: false, inflow: 0 };
+      monthsFlags[ym] = { ...prev, inflow: round2(prev.inflow + m.amount) };
     }
 
     let status: CapStatus;

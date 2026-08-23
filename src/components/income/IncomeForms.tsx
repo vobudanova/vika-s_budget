@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Button, Card, Group, Select, Stack, Text, TextInput } from '@mantine/core';
+import { ActionIcon, Button, Card, Group, Select, Stack, Text, TextInput } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
+import { IconPlus, IconX } from '@tabler/icons-react';
 import { createCompensation, createIncome } from '@/actions/transactions';
 import { CardLabel } from '@/components/CardLabel';
 import { todayLocalISO } from '@/components/assets/today';
 import type { SelectGroup } from '@/components/tx-helpers';
+import { fmtMoney, parseAmountExpr, round2 } from '@/lib/money';
 
 export function IncomeForm({
   sources,
@@ -102,15 +104,21 @@ export function CompensationForm({
   defaultAccountId: number | null;
   bare?: boolean;
 }) {
-  const [spent, setSpent] = useState('');
+  type Item = { key: number; categoryId: string | null; amount: string; note: string };
+  const emptyItem = (key: number): Item => ({ key, categoryId: null, amount: '', note: '' });
+  const [items, setItems] = useState<Item[]>([emptyItem(0)]);
   const [received, setReceived] = useState('');
   const [date, setDate] = useState<string>(todayLocalISO());
-  const [categoryId, setCategoryId] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<string | null>(
     defaultAccountId ? String(defaultAccountId) : null,
   );
   const [note, setNote] = useState('');
   const [pending, startTransition] = useTransition();
+
+  const patchItem = (key: number, patch: Partial<Item>) =>
+    setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...patch } : it)));
+  const spentTotal = items.reduce((s, it) => s + (parseAmountExpr(it.amount) ?? 0), 0);
+  const itemsReady = items.every((it) => it.categoryId && parseAmountExpr(it.amount));
 
   const submit = () =>
     startTransition(async () => {
@@ -120,9 +128,12 @@ export function CompensationForm({
       }
       const res = await createCompensation({
         date,
-        spentAmount: spent,
         receivedAmount: received,
-        categoryId: Number(categoryId),
+        items: items.map((it) => ({
+          categoryId: Number(it.categoryId),
+          amount: it.amount,
+          note: it.note || undefined,
+        })),
         accountId: Number(accountId),
         counterAccountId: Number(accountId),
         incomeSourceId: compensationSourceId,
@@ -131,8 +142,8 @@ export function CompensationForm({
       if (!res.ok) {
         notifications.show({ color: 'red', message: res.error });
       } else {
-        notifications.show({ message: 'Компенсация записана: трата стала теневой' });
-        setSpent('');
+        notifications.show({ message: 'Компенсация записана: траты стали теневыми' });
+        setItems([emptyItem(Date.now())]);
         setReceived('');
         setNote('');
       }
@@ -141,30 +152,73 @@ export function CompensationForm({
   const body = (
       <Stack gap="sm">
         {!bare && <CardLabel>Компенсация (теневая трата)</CardLabel>}
-        <Group grow>
-          <TextInput
-            label="Потрачено"
-            placeholder="10 000"
-            value={spent}
-            onChange={(e) => setSpent(e.currentTarget.value)}
-            className="money"
-            inputMode="decimal"
-          />
-          <TextInput
-            label="Получено"
-            placeholder="12 000"
-            value={received}
-            onChange={(e) => setReceived(e.currentTarget.value)}
-            className="money"
-            inputMode="decimal"
-          />
+        {items.map((it, i) => (
+          <Stack
+            key={it.key}
+            gap={6}
+            p="xs"
+            style={{ border: '1px solid var(--ink-line)', borderRadius: 'var(--mantine-radius-md)' }}
+          >
+            <Group gap="xs" wrap="nowrap" align="flex-end">
+              <Select
+                label={i === 0 ? 'Категория траты' : undefined}
+                data={categories}
+                value={it.categoryId}
+                onChange={(v) => patchItem(it.key, { categoryId: v })}
+                searchable
+                style={{ flex: 1 }}
+              />
+              <TextInput
+                label={i === 0 ? 'Потрачено' : undefined}
+                placeholder="10 000"
+                value={it.amount}
+                onChange={(e) => patchItem(it.key, { amount: e.currentTarget.value })}
+                className="money"
+                inputMode="decimal"
+                w={110}
+              />
+              {items.length > 1 && (
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  mb={4}
+                  onClick={() => setItems((prev) => prev.filter((x) => x.key !== it.key))}
+                  aria-label="Убрать позицию"
+                >
+                  <IconX size={15} stroke={1.6} />
+                </ActionIcon>
+              )}
+            </Group>
+            <TextInput
+              placeholder="Заметка к позиции"
+              value={it.note}
+              onChange={(e) => patchItem(it.key, { note: e.currentTarget.value })}
+              size="xs"
+            />
+          </Stack>
+        ))}
+        <Group justify="space-between">
+          <Button
+            variant="subtle"
+            size="compact-sm"
+            leftSection={<IconPlus size={14} stroke={1.8} />}
+            onClick={() => setItems((prev) => [...prev, emptyItem(Date.now())])}
+          >
+            Ещё позиция
+          </Button>
+          {items.length > 1 && spentTotal > 0 && (
+            <Text fz="sm" c="dimmed" className="money">
+              Потрачено всего: {fmtMoney(round2(spentTotal))}
+            </Text>
+          )}
         </Group>
-        <Select
-          label="Категория траты"
-          data={categories}
-          value={categoryId}
-          onChange={setCategoryId}
-          searchable
+        <TextInput
+          label="Получено"
+          placeholder="12 000"
+          value={received}
+          onChange={(e) => setReceived(e.currentTarget.value)}
+          className="money"
+          inputMode="decimal"
         />
         <Group grow>
           <DatePickerInput
@@ -181,13 +235,17 @@ export function CompensationForm({
             onChange={setAccountId}
           />
         </Group>
-        <TextInput label="Заметка" value={note} onChange={(e) => setNote(e.currentTarget.value)} />
+        <TextInput
+          label="Общая заметка"
+          value={note}
+          onChange={(e) => setNote(e.currentTarget.value)}
+        />
         <Group>
           <Button
             variant="light"
             onClick={submit}
             loading={pending}
-            disabled={!spent || !received || !categoryId}
+            disabled={!itemsReady || !received}
           >
             Записать компенсацию
           </Button>

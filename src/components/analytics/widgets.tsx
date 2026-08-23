@@ -162,22 +162,11 @@ export async function InflationWidget({ ym }: { ym: string }) {
             Пока мало операций, чтобы считать средние чеки.
           </Text>
         ) : (
-          <>
-            <InflationChart series={d.series} names={d.categories.map((c) => c.name)} />
-            <Group gap="lg" wrap="wrap">
-              {d.categories
-                .filter((c) => c.change !== null)
-                .map((c) => (
-                  <Text key={c.name} fz="xs" c="dimmed">
-                    {c.name}:{' '}
-                    <Text span fw={600} c={c.change! > 0 ? 'red.7' : 'teal.8'}>
-                      {c.change! > 0 ? '+' : ''}
-                      {c.change}%
-                    </Text>
-                  </Text>
-                ))}
-            </Group>
-          </>
+          <InflationChart
+            series={d.series}
+            names={d.categories.map((c) => c.name)}
+            changes={Object.fromEntries(d.categories.map((c) => [c.name, c.change]))}
+          />
         )}
       </Stack>
     </Card>
