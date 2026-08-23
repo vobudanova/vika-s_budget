@@ -34,12 +34,14 @@ export default async function AssetsPage() {
   const isFinished = (a: AssetOverview) => a.future === 0;
   const active = assets.filter((a) => !isFinished(a));
   const finished = assets.filter(isFinished);
-  const categories = [...new Set(active.map((a) => a.categoryName))];
   const moneyAccounts = ref.accounts
     .filter((a) => ['checking', 'credit_card', 'cash'].includes(a.type))
     .map((a) => ({ id: a.id, name: a.name }));
   const monthlyTotal = active.reduce((s, a) => s + a.monthlyAmount, 0);
   const assetCats = ref.assetCategories.map((c) => ({ id: c.id, name: c.name }));
+  // порядок групп — как в справочнике категорий вещей (sort_order)
+  const presentNames = new Set(active.map((a) => a.categoryName));
+  const categories = assetCats.map((c) => c.name).filter((n) => presentNames.has(n));
 
   return (
     <Stack gap="md" className="assets-page">

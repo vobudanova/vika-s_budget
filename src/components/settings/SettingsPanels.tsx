@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import {
   ActionIcon,
   Button,
+  Card,
   Group,
   NumberInput,
   Select,
@@ -16,7 +17,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { FormDrawer } from '@/components/FormDrawer';
-import { IconArchive, IconArchiveOff, IconCheck, IconPencil, IconTrash } from '@tabler/icons-react';
+import { IconArchive, IconArchiveOff, IconCheck, IconChevronDown, IconChevronUp, IconPencil, IconTrash } from '@tabler/icons-react';
 import {
   archiveCategory,
   createAccount,
@@ -28,6 +29,8 @@ import {
   deleteCategoryHard,
   getCategoryUsage,
   renameAccount,
+  moveAssetCategory,
+  renameAssetCategory,
   renameIncomeSource,
   renameCategory,
   setCategoryPendingDelete,
@@ -64,6 +67,7 @@ export function SettingsPanels({
   fundCategories,
   sources,
   accounts,
+  assetCategories,
 }: {
   inflationRate: number;
   groups: Grp[];
@@ -71,6 +75,7 @@ export function SettingsPanels({
   fundCategories: FundCat[];
   sources: Source[];
   accounts: Account[];
+  assetCategories: { id: number; name: string }[];
 }) {
   return (
     <Tabs defaultValue="general" keepMounted={false}>
@@ -79,6 +84,7 @@ export function SettingsPanels({
         <Tabs.Tab value="categories">Категории</Tabs.Tab>
         <Tabs.Tab value="fund">Статьи КС</Tabs.Tab>
         <Tabs.Tab value="income">Источники дохода</Tabs.Tab>
+        <Tabs.Tab value="things">Вещи</Tabs.Tab>
         <Tabs.Tab value="accounts">Счета</Tabs.Tab>
       </Tabs.List>
 
@@ -93,6 +99,9 @@ export function SettingsPanels({
       </Tabs.Panel>
       <Tabs.Panel value="income">
         <IncomePanel sources={sources} />
+      </Tabs.Panel>
+      <Tabs.Panel value="things">
+        <AssetCategoriesPanel items={assetCategories} />
       </Tabs.Panel>
       <Tabs.Panel value="accounts">
         <AccountsPanel accounts={accounts} />
@@ -624,6 +633,114 @@ function RenameAccountDrawer({ account, onClose }: { account: Account | null; on
     <FormDrawer opened={!!account} onClose={onClose} title="Переименовать счёт" desktopSize="sm">
       <Stack gap="sm">
         <TextInput label="Название" value={value} onChange={(e) => setValue(e.currentTarget.value)} autoFocus />
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>
+            Отмена
+          </Button>
+          <Button onClick={save} loading={pending} disabled={!value.trim()}>
+            Сохранить
+          </Button>
+        </Group>
+      </Stack>
+    </FormDrawer>
+  );
+}
+
+// ------------------------------------------------------- категории вещей
+
+function AssetCategoriesPanel({ items }: { items: { id: number; name: string }[] }) {
+  const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const move = (id: number, dir: -1 | 1) =>
+    startTransition(async () => {
+      notify(await moveAssetCategory(id, dir), 'Порядок обновлён');
+    });
+
+  return (
+    <Card maw={560}>
+      <Stack gap="sm">
+        <Text fz="sm" c="dimmed">
+          Категории покупок на страницах «Амортизация» и «КАП»: название и порядок групп.
+        </Text>
+        <Table verticalSpacing={6} fz="sm">
+          <Table.Tbody>
+            {items.map((c, i) => (
+              <Table.Tr key={c.id}>
+                <Table.Td px={0}>{c.name}</Table.Td>
+                <Table.Td px={0} w={110}>
+                  <Group gap={4} justify="flex-end" wrap="nowrap">
+                    <Tooltip label="Выше">
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        size="sm"
+                        disabled={i === 0 || pending}
+                        onClick={() => move(c.id, -1)}
+                      >
+                        <IconChevronUp size={14} stroke={1.6} />
+                      </ActionIcon>
+                    </Tooltip>
+                    <Tooltip label="Ниже">
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        size="sm"
+                        disabled={i === items.length - 1 || pending}
+                        onClick={() => move(c.id, 1)}
+                      >
+                        <IconChevronDown size={14} stroke={1.6} />
+                      </ActionIcon>
+                    </Tooltip>
+                    <Tooltip label="Переименовать">
+                      <ActionIcon variant="subtle" color="gray" size="sm" onClick={() => setRenaming(c)}>
+                        <IconPencil size={14} stroke={1.6} />
+                      </ActionIcon>
+                    </Tooltip>
+                  </Group>
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Stack>
+      <RenameAssetCategoryDrawer target={renaming} onClose={() => setRenaming(null)} />
+    </Card>
+  );
+}
+
+function RenameAssetCategoryDrawer({
+  target,
+  onClose,
+}: {
+  target: { id: number; name: string } | null;
+  onClose: () => void;
+}) {
+  const [value, setValue] = useState('');
+  const [opened, setOpened] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  if (target && !opened) {
+    setValue(target.name);
+    setOpened(true);
+  }
+  if (!target && opened) setOpened(false);
+
+  const save = () =>
+    startTransition(async () => {
+      if (!target) return;
+      const res = await renameAssetCategory(target.id, value);
+      notify(res, 'Категория переименована');
+      if (res.ok) onClose();
+    });
+
+  return (
+    <FormDrawer opened={!!target} onClose={onClose} title="Переименовать категорию" desktopSize="sm">
+      <Stack gap="sm">
+        <TextInput label="Название" value={value} onChange={(e) => setValue(e.currentTarget.value)} autoFocus />
+        <Text fz="xs" c="dimmed">
+          Категория «Покупки → {target?.name}» в таблицах месяца и года переименуется вместе с ней.
+        </Text>
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>
             Отмена

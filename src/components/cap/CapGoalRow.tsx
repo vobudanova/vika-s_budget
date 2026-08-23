@@ -88,7 +88,7 @@ export function CapGoalRow({
         <Money value={goal.contributed} fz="sm" exact />
       </TableTd>
       <TableTd ta="right">
-        <Money value={goal.remaining} fz="sm" exact c={goal.remaining > 0 ? undefined : 'dimmed'} />
+        <Money value={goal.remaining} fz="sm" exact c={goal.remaining >= 1 ? undefined : 'dimmed'} />
       </TableTd>
       <TableTd ta="right">
         <Money value={goal.target} fz="sm" fw={600} exact />

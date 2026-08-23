@@ -91,7 +91,9 @@ export async function getCapOverview(): Promise<CapOverview> {
       status = 'spent';
     } else if (mine.length === 0) {
       status = 'not_started';
-    } else if (remaining <= 0.01) {
+    } else if (remaining < 1) {
+      // копеечная пыль от округления месячного взноса (N×взнос ≠ цель) прощается:
+      // цель считается собранной, если не хватает меньше рубля
       waitUntil = lastOwn ? monthEnd(ymOf(lastOwn.date)) : null;
       status = waitUntil && today <= waitUntil ? 'waiting' : 'ready';
     } else if (firstOwnYm) {

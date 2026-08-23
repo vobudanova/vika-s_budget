@@ -8,13 +8,13 @@ import {
   getHygieneWidget,
   getInflationWidget,
   getRhythmWidget,
-  getAmortCheckWidget,
-  getCapCheckWidget,
+  getAnomalies,
+  getCapMonths,
   getFillWidget,
   getThingsWidget,
   getTrendSeries,
 } from '@/queries/analytics-widgets';
-import { CapexChart, FillHeatmap, InflationChart, WeekdayChart, YearHeatmap } from './widget-charts';
+import { CapexChart, FillYearsBrowser, InflationChart, WeekdayChart, YearHeatmap } from './widget-charts';
 import { TrendCard } from './AnalyticsView';
 import { fmtMoney, fmtMoneyExact } from '@/lib/money';
 
@@ -56,72 +56,33 @@ export function WidgetSkeleton({ lines = 4, chart = 0 }: { lines?: number; chart
 export async function ThingsWidget({ ym }: { ym: string }) {
   const d = await getThingsWidget(ym);
   return (
-    <>
-      <Card>
-        <Stack gap="sm">
-          <CardLabel>Стоимость владения вещами</CardLabel>
-          {d.activeCount === 0 ? (
-            <Text fz="sm" c="dimmed">
-              Активных покупок нет.
-            </Text>
-          ) : (
-            <>
-              <Group gap="xs" align="baseline">
-                <Money value={Math.round(d.perDay)} fz={22} fw={700} />
-                <Text fz="sm" c="dimmed">
-                  в день · {d.activeCount} вещей
-                </Text>
-              </Group>
-              <Stack gap={0}>
-                {d.top.map((t, i) => (
-                  <Row
-                    key={t.name}
-                    last={i === d.top.length - 1}
-                    left={
-                      <Text fz="sm" truncate>
-                        {t.name}
-                      </Text>
-                    }
-                    right={
-                      <Text fz="sm" className="money" c="dimmed" style={{ flexShrink: 0 }}>
-                        {money0(t.monthly)}/мес
-                      </Text>
-                    }
-                  />
-                ))}
-              </Stack>
-            </>
-          )}
-        </Stack>
-      </Card>
-      <Card>
-        <Stack gap="sm">
-          <CardLabel>Когда станет легче</CardLabel>
-          {d.releases.length === 0 ? (
-            <Text fz="sm" c="dimmed">
-              В ближайшие месяцы начисления не заканчиваются.
-            </Text>
-          ) : (
-            <Stack gap={0}>
-              {d.releases.map((r, i) => (
-                <Row
-                  key={r.label}
-                  last={i === d.releases.length - 1}
-                  left={<Text fz="sm">{r.label} — доамортизируются вещи</Text>}
-                  right={
-                    <Text fz="sm" className="money" c="teal.8" fw={500} style={{ flexShrink: 0 }}>
-                      −{money0(r.monthly)}/мес
-                    </Text>
-                  }
-                />
-              ))}
-            </Stack>
-          )}
-          <CardLabel>Доля покупок в расходах</CardLabel>
-          <CapexChart data={d.capexShare} />
-        </Stack>
-      </Card>
-    </>
+    <Card>
+      <Stack gap="sm">
+        <CardLabel>Когда станет легче</CardLabel>
+        {d.releases.length === 0 ? (
+          <Text fz="sm" c="dimmed">
+            В ближайшие месяцы начисления не заканчиваются.
+          </Text>
+        ) : (
+          <Stack gap={0}>
+            {d.releases.map((r, i) => (
+              <Row
+                key={r.label}
+                last={i === d.releases.length - 1}
+                left={<Text fz="sm">{r.label} — доамортизируются вещи</Text>}
+                right={
+                  <Text fz="sm" className="money" c="teal.8" fw={500} style={{ flexShrink: 0 }}>
+                    −{money0(r.monthly)}/мес
+                  </Text>
+                }
+              />
+            ))}
+          </Stack>
+        )}
+        <CardLabel>Доля покупок в расходах</CardLabel>
+        <CapexChart data={d.capexShare} />
+      </Stack>
+    </Card>
   );
 }
 
@@ -192,39 +153,29 @@ export async function RhythmWidget({ ym }: { ym: string }) {
 
 export async function InflationWidget({ ym }: { ym: string }) {
   const d = await getInflationWidget(ym);
-  const noData = d.series.every((s) => s.Продукты === null && s.Кафе === null);
   return (
     <Card>
       <Stack gap="sm">
         <CardLabel>Личная инфляция · средний чек</CardLabel>
-        {noData ? (
+        {d.categories.length === 0 ? (
           <Text fz="sm" c="dimmed">
-            Недостаточно данных по продуктам и кафе.
+            Пока мало операций, чтобы считать средние чеки.
           </Text>
         ) : (
           <>
-            <InflationChart series={d.series} />
-            <Group gap="lg">
-              {d.groceryChange !== null && (
-                <Text fz="xs" c="dimmed">
-                  Продукты:{' '}
-                  <Text span fw={600} c={d.groceryChange > 0 ? 'red.7' : 'teal.8'}>
-                    {d.groceryChange > 0 ? '+' : ''}
-                    {d.groceryChange}%
-                  </Text>{' '}
-                  за период
-                </Text>
-              )}
-              {d.cafeChange !== null && (
-                <Text fz="xs" c="dimmed">
-                  Кафе:{' '}
-                  <Text span fw={600} c={d.cafeChange > 0 ? 'red.7' : 'teal.8'}>
-                    {d.cafeChange > 0 ? '+' : ''}
-                    {d.cafeChange}%
-                  </Text>{' '}
-                  за период
-                </Text>
-              )}
+            <InflationChart series={d.series} names={d.categories.map((c) => c.name)} />
+            <Group gap="lg" wrap="wrap">
+              {d.categories
+                .filter((c) => c.change !== null)
+                .map((c) => (
+                  <Text key={c.name} fz="xs" c="dimmed">
+                    {c.name}:{' '}
+                    <Text span fw={600} c={c.change! > 0 ? 'red.7' : 'teal.8'}>
+                      {c.change! > 0 ? '+' : ''}
+                      {c.change}%
+                    </Text>
+                  </Text>
+                ))}
             </Group>
           </>
         )}
@@ -525,8 +476,6 @@ export async function TrendWidget({ ym }: { ym: string }) {
 
 // ------------------------------------------------------------ заполненность
 
-const dm = (d: string) => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`;
-
 export async function FillWidget() {
   const d = await getFillWidget();
   return (
@@ -539,23 +488,7 @@ export async function FillWidget() {
           </Text>
         ) : (
           <>
-            {d.years.map((y) => (
-              <Stack key={y.year} gap={6}>
-                <Group gap="xs" align="baseline">
-                  <Text fw={700} fz="sm" className="money">
-                    {y.year}
-                  </Text>
-                  <Text
-                    fz="xs"
-                    className="money"
-                    c={y.filled / Math.max(y.passed, 1) >= 0.8 ? 'teal.8' : y.filled / Math.max(y.passed, 1) >= 0.4 ? 'orange.8' : 'red.8'}
-                  >
-                    отмечено {y.filled} из {y.passed} ({Math.round((y.filled / Math.max(y.passed, 1)) * 100)}%)
-                  </Text>
-                </Group>
-                <FillHeatmap year={y.year} days={y.days} />
-              </Stack>
-            ))}
+            <FillYearsBrowser years={d.years} />
             <Group gap="md">
               <Group gap={6}>
                 <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--mantine-color-ink-4)' }} />
@@ -570,29 +503,6 @@ export async function FillWidget() {
                 <Text fz="xs" c="dimmed">пусто</Text>
               </Group>
             </Group>
-            {d.gaps.length > 0 && (
-              <>
-                <CardLabel>Самые большие дырки</CardLabel>
-                <Stack gap={0}>
-                  {d.gaps.map((g, i) => (
-                    <Row
-                      key={g.from}
-                      last={i === d.gaps.length - 1}
-                      left={
-                        <Text fz="sm" className="money">
-                          {dm(g.from)} — {dm(g.to)}
-                        </Text>
-                      }
-                      right={
-                        <Text fz="sm" fw={600} className="money" c={g.days >= 14 ? 'red.8' : 'orange.8'} style={{ flexShrink: 0 }}>
-                          {g.days} дн. подряд
-                        </Text>
-                      }
-                    />
-                  ))}
-                </Stack>
-              </>
-            )}
           </>
         )}
       </Stack>
@@ -600,106 +510,106 @@ export async function FillWidget() {
   );
 }
 
-// ------------------------------------------------------------ сверка КАП
+// ---------------------------------------------------------- КАП по месяцам
 
-export async function CapCheckWidget() {
-  const d = await getCapCheckWidget();
-  const ok = d.mismatches.length === 0;
+export async function CapMonthsWidget() {
+  const d = await getCapMonths();
   return (
     <Card>
       <Stack gap="sm">
-        <CardLabel>Сверка КАП · переводы и взносы</CardLabel>
-        {ok ? (
-          <Text fz="sm" c="teal.8">
-            Переводы на счёт КАП совпадают со взносами до копейки во всех месяцах ({d.monthsChecked}) ✓
+        <CardLabel>КАП по месяцам · флажки и переводы</CardLabel>
+        {d.months.length === 0 ? (
+          <Text fz="sm" c="dimmed">
+            Взносов и переводов на КАП пока нет.
           </Text>
         ) : (
           <>
-            <Text fz="xs" c="dimmed">
-              Месяцы, где сумма переводов на счёт КАП не сошлась с проставленными взносами:
-            </Text>
+            {d.allOk ? (
+              <Text fz="sm" c="teal.8">
+                Во всех месяцах суммы флажков совпадают с переводами на счёт КАП ✓
+              </Text>
+            ) : (
+              <Text fz="xs" c="dimmed">
+                В каждом месяце сумма проставленных флажков должна совпадать с реальными переводами
+                на счёт КАП:
+              </Text>
+            )}
             <Stack gap={0}>
-              {d.mismatches.map((m, i) => (
+              {d.months.map((m, i) => (
                 <Row
                   key={m.ym}
-                  last={i === d.mismatches.length - 1}
+                  last={i === d.months.length - 1}
                   left={
                     <Stack gap={2} style={{ minWidth: 0 }}>
                       <Text fz="sm" fw={500}>
                         {m.label}
                       </Text>
                       <Text fz="xs" c="dimmed" className="money">
-                        переводы {moneyE(m.transfers)} · взносы {moneyE(m.contribs)}
+                        флажки {moneyE(m.contribs)}{m.goals > 0 ? ` (${m.goals} целей)` : ''} · переводы {moneyE(m.transfers)}
                       </Text>
                     </Stack>
                   }
                   right={
-                    <Text fz="sm" fw={600} className="money" c={m.diff > 0 ? 'orange.8' : 'red.8'} style={{ flexShrink: 0 }}>
-                      {m.diff > 0 ? '+' : ''}
-                      {moneyE(m.diff)}
-                    </Text>
+                    Math.abs(m.diff) <= 0.005 ? (
+                      <Text fz="sm" fw={600} c="teal.8" style={{ flexShrink: 0 }}>
+                        ✓
+                      </Text>
+                    ) : (
+                      <Text fz="sm" fw={600} className="money" c={m.diff > 0 ? 'orange.8' : 'red.8'} style={{ flexShrink: 0 }}>
+                        {m.diff > 0 ? '+' : ''}
+                        {moneyE(m.diff)}
+                      </Text>
+                    )
                   }
                 />
               ))}
             </Stack>
           </>
         )}
-        <Text fz="xs" c="dimmed" className="money">
-          Всего переводов {moneyE(d.totalTransfers)} · взносов {moneyE(d.totalContribs)}
-          {Math.abs(d.totalDiff) > 0.005 ? ` · разница ${d.totalDiff > 0 ? '+' : ''}${moneyE(d.totalDiff)}` : ' · сходится ✓'}
-        </Text>
       </Stack>
     </Card>
   );
 }
 
-// ------------------------------------------------------ сверка амортизации
+// -------------------------------------------------------------- аномалии
 
-export async function AmortCheckWidget() {
-  const d = await getAmortCheckWidget();
+const ANOMALY_COLOR: Record<string, string> = {
+  missing: 'orange.8',
+  spike: 'red.8',
+  quiet: 'blue.7',
+  new: 'grape.7',
+};
+
+export async function AnomaliesWidget({ ym }: { ym: string }) {
+  const items = await getAnomalies(ym);
   return (
     <Card>
       <Stack gap="sm">
-        <CardLabel>Сверка амортизации</CardLabel>
-        {d.broken.length === 0 ? (
-          <Text fz="sm" c="teal.8">
-            Графики начислений всех вещей ({d.totalAssets}) сходятся с ценами до копейки ✓
+        <CardLabel>Аномалии месяца</CardLabel>
+        {items.length === 0 ? (
+          <Text fz="sm" c="dimmed">
+            Месяц похож на предыдущие: без пропаж, всплесков и новичков.
           </Text>
         ) : (
-          <>
-            <Text fz="xs" c="dimmed">
-              Вещи, у которых график начислений бьётся с ценой или сроком:
-            </Text>
-            <Stack gap={0}>
-              {d.broken.map((b, i) => (
-                <Row
-                  key={b.name}
-                  last={i === d.broken.length - 1}
-                  left={
-                    <Stack gap={2} style={{ minWidth: 0 }}>
-                      <Text fz="sm" fw={500} truncate>
-                        {b.name}
-                      </Text>
-                      <Text fz="xs" c="dimmed" className="money">
-                        график {moneyE(b.scheduled)} · цена {moneyE(b.price)}
-                        {b.countDiff !== 0 ? ` · платежей ${b.countDiff > 0 ? '+' : ''}${b.countDiff}` : ''}
-                      </Text>
-                    </Stack>
-                  }
-                  right={
-                    <Text fz="sm" fw={600} className="money" c="red.8" style={{ flexShrink: 0 }}>
-                      {b.diff > 0 ? '+' : ''}
-                      {moneyE(b.diff)}
+          <Stack gap={0}>
+            {items.map((a, i) => (
+              <Row
+                key={a.title}
+                last={i === items.length - 1}
+                left={
+                  <Stack gap={2} style={{ minWidth: 0 }}>
+                    <Text fz="sm" fw={600} c={ANOMALY_COLOR[a.kind]}>
+                      {a.title}
                     </Text>
-                  }
-                />
-              ))}
-            </Stack>
-            <Text fz="xs" c="dimmed">
-              Остальные {d.okCount} из {d.totalAssets} сходятся. Пересоздать график можно через
-              «Редактировать…» на странице Амортизации.
-            </Text>
-          </>
+                    <Text fz="xs" c="dimmed">
+                      {a.text}
+                    </Text>
+                  </Stack>
+                }
+                right={null}
+              />
+            ))}
+          </Stack>
         )}
       </Stack>
     </Card>

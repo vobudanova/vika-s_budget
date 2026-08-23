@@ -199,7 +199,8 @@ export function DayWorkspace({
                 onClick={() => setBlock(b.key)}
                 rightSection={
                   counts[b.key] > 0 ? (
-                    <Badge size="xs" variant="light" circle>
+                    // не circle: круглая форма обрезает двузначные числа («1..»)
+                    <Badge size="xs" variant="light" radius="xl">
                       {counts[b.key]}
                     </Badge>
                   ) : undefined

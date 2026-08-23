@@ -2,11 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { todayISO } from '@/lib/dates';
 
-const { categories, categoryGroups, fundCategories, incomeSources, accounts } = schema;
+const { categories, categoryGroups, fundCategories, incomeSources, accounts, assetCategories } = schema;
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 const revalidateAll = () => revalidatePath('/', 'layout');
@@ -303,6 +303,53 @@ export async function deleteIncomeSource(id: number): Promise<ActionResult> {
       };
     }
     await db.delete(incomeSources).where(eq(incomeSources.id, id));
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+// ------------------------------------------------------- категории вещей
+
+/** Переименовать категорию вещей; связанная категория «Покупки → …»
+    переименовывается вместе с ней. */
+export async function renameAssetCategory(id: number, name: string): Promise<ActionResult> {
+  try {
+    const clean = name.trim();
+    if (!clean) return { ok: false, error: 'Пустое название' };
+    const [cat] = await db.select().from(assetCategories).where(eq(assetCategories.id, id));
+    if (!cat) return { ok: false, error: 'Категория не найдена' };
+    await db.transaction(async (tx) => {
+      await tx.update(assetCategories).set({ name: clean }).where(eq(assetCategories.id, id));
+      const [purchGroup] = await tx.select().from(categoryGroups).where(eq(categoryGroups.name, 'Покупки'));
+      if (purchGroup) {
+        await tx
+          .update(categories)
+          .set({ name: clean })
+          .where(and(eq(categories.groupId, purchGroup.id), eq(categories.name, cat.name)));
+      }
+    });
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Сдвинуть категорию вещей вверх/вниз (обмен sort_order с соседом). */
+export async function moveAssetCategory(id: number, dir: -1 | 1): Promise<ActionResult> {
+  try {
+    const all = await db.select().from(assetCategories).orderBy(asc(assetCategories.sortOrder));
+    const idx = all.findIndex((c) => c.id === id);
+    if (idx < 0) return { ok: false, error: 'Категория не найдена' };
+    const swap = all[idx + dir];
+    if (!swap) return { ok: true };
+    const a = all[idx];
+    await db.transaction(async (tx) => {
+      await tx.update(assetCategories).set({ sortOrder: swap.sortOrder }).where(eq(assetCategories.id, a.id));
+      await tx.update(assetCategories).set({ sortOrder: a.sortOrder }).where(eq(assetCategories.id, swap.id));
+    });
     revalidateAll();
     return { ok: true };
   } catch (e) {

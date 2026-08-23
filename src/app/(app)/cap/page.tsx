@@ -43,14 +43,17 @@ export default async function CapPage() {
     .map((a) => ({ id: a.id, name: a.name }));
   const checkingId = ref.accounts.find((a) => a.type === 'checking')?.id ?? null;
 
-  // цели по категориям активов, внутри — по дате начала амортизации
+  // цели по категориям активов, внутри — по дате начала амортизации;
+  // порядок групп — как в справочнике категорий вещей (sort_order)
   const byCategory = new Map<string, CapGoalOverview[]>();
+  for (const c of ref.assetCategories) byCategory.set(c.name, []);
   for (const g of activeGoals) {
     const key = g.assetCategoryName ?? 'Без категории';
     byCategory.set(key, [...(byCategory.get(key) ?? []), g]);
   }
-  for (const list of byCategory.values()) {
-    list.sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''));
+  for (const [key, list] of byCategory) {
+    if (list.length === 0) byCategory.delete(key);
+    else list.sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''));
   }
 
   return (

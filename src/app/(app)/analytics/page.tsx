@@ -3,8 +3,7 @@ import { Group, SimpleGrid, Stack, Title } from '@mantine/core';
 import { todayISO, ymOf } from '@/lib/dates';
 import { AnalyticsNav } from '@/components/analytics/AnalyticsNav';
 import {
-  AmortCheckWidget,
-  CapCheckWidget,
+  CapMonthsWidget,
   FillWidget,
   ForecastWidget,
   FundsWidget,
@@ -53,29 +52,17 @@ export default function AnalyticsTrendsPage() {
       <Suspense fallback={<WidgetSkeleton chart={90} lines={4} />}>
         <FillWidget />
       </Suspense>
+      <Suspense fallback={<WidgetSkeleton lines={8} />}>
+        <CapMonthsWidget />
+      </Suspense>
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-        <Suspense fallback={<WidgetSkeleton lines={5} />}>
-          <CapCheckWidget />
-        </Suspense>
-        <Suspense fallback={<WidgetSkeleton lines={5} />}>
-          <AmortCheckWidget />
-        </Suspense>
-      </SimpleGrid>
-      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-        <Suspense
-          fallback={
-            <>
-              <WidgetSkeleton lines={6} />
-              <WidgetSkeleton chart={130} lines={3} />
-            </>
-          }
-        >
+        <Suspense fallback={<WidgetSkeleton chart={130} lines={4} />}>
           <ThingsWidget ym={ym} />
         </Suspense>
+        <Suspense fallback={<WidgetSkeleton chart={200} lines={2} />}>
+          <InflationWidget ym={ym} />
+        </Suspense>
       </SimpleGrid>
-      <Suspense fallback={<WidgetSkeleton chart={170} lines={1} />}>
-        <InflationWidget ym={ym} />
-      </Suspense>
     </Stack>
   );
 }

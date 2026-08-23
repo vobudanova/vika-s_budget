@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { RU_MONTHS, RU_MONTHS_DAT, monthEnd, monthStart, todayISO, ymOf } from '@/lib/dates';
-import { round2, toNum } from '@/lib/money';
+import { fmtMoney, round2, toNum } from '@/lib/money';
 
 const label = (ym: string) => RU_MONTHS[Number(ym.slice(5, 7)) - 1].slice(0, 3).toLowerCase();
 
@@ -15,25 +15,13 @@ function monthsBack(ym: string, n: number): string {
 // ------------------------------------------------------------ вещи
 
 export type ThingsWidgetData = {
-  perDay: number; // стоимость владения всеми активными вещами в день
-  activeCount: number;
-  top: { name: string; monthly: number }[];
   releases: { label: string; monthly: number }[]; // когда освободятся начисления
   capexShare: { label: string; pct: number }[]; // доля покупок в фактических, 12 мес
 };
 
 export async function getThingsWidget(ym: string): Promise<ThingsWidgetData> {
   const from12 = monthsBack(ym, 11);
-  const [assetsRes, relRes, capexRes] = await Promise.all([
-    db.execute(sql`
-      SELECT a.name, (a.initial_price + COALESCE(adj.s, 0)) / a.term_months AS monthly
-      FROM assets a
-      LEFT JOIN LATERAL (SELECT sum(amount) AS s FROM asset_adjustments WHERE asset_id = a.id) adj ON true
-      WHERE a.disposed_at IS NULL
-        AND EXISTS (SELECT 1 FROM amortization_accruals aa
-                    WHERE aa.asset_id = a.id AND aa.accrual_date > ${monthEnd(ym)})
-      ORDER BY 2 DESC
-    `),
+  const [relRes, capexRes] = await Promise.all([
     db.execute(sql`
       SELECT to_char(last_d, 'YYYY-MM') AS ym, sum(monthly) AS s FROM (
         SELECT a.id, max(aa.accrual_date) AS last_d,
@@ -57,12 +45,7 @@ export async function getThingsWidget(ym: string): Promise<ThingsWidgetData> {
     `),
   ]);
 
-  const assets = (assetsRes.rows as any[]).map((r) => ({ name: r.name as string, monthly: toNum(r.monthly) }));
-  const monthlySum = assets.reduce((s, a) => s + a.monthly, 0);
   return {
-    perDay: round2((monthlySum * 12) / 365),
-    activeCount: assets.length,
-    top: assets.slice(0, 5).map((a) => ({ name: a.name, monthly: round2(a.monthly) })),
     releases: (relRes.rows as any[]).map((r) => ({ label: label(String(r.ym)), monthly: round2(toNum(r.s)) })),
     capexShare: (capexRes.rows as any[]).map((r) => ({
       label: label(String(r.ym)),
@@ -135,32 +118,53 @@ export async function getRhythmWidget(ym: string): Promise<RhythmWidgetData> {
 // ------------------------------------------------------------ инфляция
 
 export type InflationWidgetData = {
-  series: { label: string; Продукты: number | null; Кафе: number | null }[];
-  groceryChange: number | null; // % первый→последний
-  cafeChange: number | null;
+  categories: { name: string; change: number | null }[]; // топ по числу операций
+  series: Record<string, string | number | null>[]; // label + значения по категориям
 };
 
 export async function getInflationWidget(ym: string): Promise<InflationWidgetData> {
-  const res = await db.execute(sql`
-    SELECT to_char(date_trunc('month', v.date), 'YYYY-MM') AS ym,
-      avg(v.amount) FILTER (WHERE c.name ILIKE '%продукт%') AS grocery,
-      avg(v.amount) FILTER (WHERE c.name ILIKE '%кафе%') AS cafe
+  // топ-6 категорий, где средний чек осмыслен: много операций за год
+  const catsRes = await db.execute(sql`
+    SELECT c.id, c.name, count(*) AS n
     FROM v_expenses_actual v JOIN categories c ON c.id = v.category_id
     WHERE v.src = 'expense' AND v.date >= ${monthsBack(ym, 11)} AND v.date <= ${monthEnd(ym)}
       AND v.amount > 0
-    GROUP BY 1 ORDER BY 1
+    GROUP BY 1, 2 HAVING count(*) >= 12
+    ORDER BY 3 DESC LIMIT 6
   `);
-  const rows = (res.rows as any[]).map((r) => ({
-    label: label(String(r.ym)),
-    Продукты: r.grocery === null ? null : round2(toNum(r.grocery)),
-    Кафе: r.cafe === null ? null : round2(toNum(r.cafe)),
-  }));
-  const change = (key: 'Продукты' | 'Кафе') => {
-    const vals = rows.map((r) => r[key]).filter((v): v is number => v !== null && v > 0);
-    if (vals.length < 3) return null;
-    return Math.round(((vals[vals.length - 1] - vals[0]) / vals[0]) * 100);
-  };
-  return { series: rows, groceryChange: change('Продукты'), cafeChange: change('Кафе') };
+  const cats = (catsRes.rows as any[]).map((r) => ({ id: Number(r.id), name: String(r.name) }));
+  if (cats.length === 0) return { categories: [], series: [] };
+
+  const res = await db.execute(sql`
+    SELECT v.category_id, to_char(date_trunc('month', v.date), 'YYYY-MM') AS ym, avg(v.amount) AS a
+    FROM v_expenses_actual v
+    WHERE v.src = 'expense' AND v.category_id IN (${sql.join(cats.map((c) => sql`${c.id}`), sql`, `)})
+      AND v.date >= ${monthsBack(ym, 11)} AND v.date <= ${monthEnd(ym)} AND v.amount > 0
+    GROUP BY 1, 2 ORDER BY 2
+  `);
+  const byCat = new Map<number, Map<string, number>>();
+  const yms = new Set<string>();
+  for (const r of res.rows as any[]) {
+    const cid = Number(r.category_id);
+    yms.add(String(r.ym));
+    const m = byCat.get(cid) ?? new Map();
+    m.set(String(r.ym), round2(toNum(r.a)));
+    byCat.set(cid, m);
+  }
+  const ymsSorted = [...yms].sort();
+  const series = ymsSorted.map((m) => {
+    const row: Record<string, string | number | null> = { label: label(m) };
+    for (const c of cats) row[c.name] = byCat.get(c.id)?.get(m) ?? null;
+    return row;
+  });
+  const categories = cats.map((c) => {
+    const vals = ymsSorted.map((m) => byCat.get(c.id)?.get(m)).filter((v): v is number => !!v && v > 0);
+    return {
+      name: c.name,
+      change: vals.length >= 3 ? Math.round(((vals[vals.length - 1] - vals[0]) / vals[0]) * 100) : null,
+    };
+  });
+  return { categories, series };
 }
 
 // ------------------------------------------------------------ прогнозы
@@ -458,7 +462,6 @@ export type FillDay = { date: string; status: 0 | 1 | 2 }; // 2 отмечен �
 export type FillYear = { year: number; days: FillDay[]; filled: number; passed: number };
 export type FillWidgetData = {
   years: FillYear[]; // от старых к новым, от первого дня данных до сегодня
-  gaps: { from: string; to: string; days: number }[]; // самые длинные серии без отметки
 };
 
 export async function getFillWidget(): Promise<FillWidgetData> {
@@ -500,36 +503,24 @@ export async function getFillWidget(): Promise<FillWidgetData> {
       passed: days.length,
     }));
 
-  // дырки: подряд идущие дни без отметки (операции без галочки тоже дырка)
-  const all = years.flatMap((y) => y.days);
-  const gaps: { from: string; to: string; days: number }[] = [];
-  let run: FillDay[] = [];
-  const flush = () => {
-    if (run.length >= 3) gaps.push({ from: run[0].date, to: run[run.length - 1].date, days: run.length });
-    run = [];
-  };
-  for (const d of all) {
-    if (d.status === 2) flush();
-    else run.push(d);
-  }
-  flush();
-  gaps.sort((a, b) => b.days - a.days);
-
-  return { years, gaps: gaps.slice(0, 30) };
+  return { years };
 }
 
-// ------------------------------------------------------------ сверка КАП
+// ---------------------------------------------------------- КАП по месяцам
 
-export type CapCheckWidgetData = {
-  /** месяцы, где сумма переводов на счёт КАП не сошлась со взносами-флажками */
-  mismatches: { ym: string; label: string; transfers: number; contribs: number; diff: number }[];
-  monthsChecked: number;
-  totalTransfers: number;
-  totalContribs: number;
-  totalDiff: number;
+export type CapMonthRow = {
+  ym: string;
+  label: string;
+  contribs: number; // сумма взносов-флажков
+  goals: number; // сколько целей отмечено
+  transfers: number; // сумма переводов на счёт КАП
+  diff: number;
 };
+export type CapMonthsData = { months: CapMonthRow[]; allOk: boolean; totalDiff: number };
 
-export async function getCapCheckWidget(): Promise<CapCheckWidgetData> {
+/** Полноценный помесячный блок КАП: в каждом месяце с флажками взносы
+    должны совпадать с реальными переводами на счёт КАП. */
+export async function getCapMonths(): Promise<CapMonthsData> {
   const [trRes, cRes] = await Promise.all([
     db.execute(sql`
       SELECT to_char(date_trunc('month', t.date), 'YYYY-MM') AS ym, sum(t.amount) AS s
@@ -538,77 +529,109 @@ export async function getCapCheckWidget(): Promise<CapCheckWidgetData> {
       GROUP BY 1
     `),
     db.execute(sql`
-      SELECT to_char(date_trunc('month', m.date), 'YYYY-MM') AS ym, sum(m.amount) AS s
+      SELECT to_char(date_trunc('month', m.date), 'YYYY-MM') AS ym,
+             sum(m.amount) AS s, count(DISTINCT m.cap_goal_id) AS goals
       FROM cap_movements m WHERE m.source = 'own_funds'
       GROUP BY 1
     `),
   ]);
   const transfers = new Map((trRes.rows as any[]).map((r) => [String(r.ym), toNum(r.s)]));
-  const contribs = new Map((cRes.rows as any[]).map((r) => [String(r.ym), toNum(r.s)]));
-  const yms = [...new Set([...transfers.keys(), ...contribs.keys()])].sort();
-
+  const contribs = new Map(
+    (cRes.rows as any[]).map((r) => [String(r.ym), { s: toNum(r.s), goals: Number(r.goals) }]),
+  );
+  const yms = [...new Set([...transfers.keys(), ...contribs.keys()])].sort().reverse().slice(0, 18);
   const monthLabel = (ym: string) =>
     `${RU_MONTHS[Number(ym.slice(5, 7)) - 1].toLowerCase()} ${ym.slice(0, 4)}`;
-  const mismatches = yms
-    .map((ym) => {
-      const t = round2(transfers.get(ym) ?? 0);
-      const c = round2(contribs.get(ym) ?? 0);
-      return { ym, label: monthLabel(ym), transfers: t, contribs: c, diff: round2(t - c) };
-    })
-    .filter((m) => Math.abs(m.diff) > 0.005)
-    .reverse();
-
-  const totalTransfers = round2([...transfers.values()].reduce((s, v) => s + v, 0));
-  const totalContribs = round2([...contribs.values()].reduce((s, v) => s + v, 0));
+  const months: CapMonthRow[] = yms.map((ym) => {
+    const t = round2(transfers.get(ym) ?? 0);
+    const c = contribs.get(ym);
+    return {
+      ym,
+      label: monthLabel(ym),
+      contribs: round2(c?.s ?? 0),
+      goals: c?.goals ?? 0,
+      transfers: t,
+      diff: round2(t - (c?.s ?? 0)),
+    };
+  });
   return {
-    mismatches,
-    monthsChecked: yms.length,
-    totalTransfers,
-    totalContribs,
-    totalDiff: round2(totalTransfers - totalContribs),
+    months,
+    allOk: months.every((m) => Math.abs(m.diff) <= 0.005),
+    totalDiff: round2(months.reduce((s, m) => s + m.diff, 0)),
   };
 }
 
-// ------------------------------------------------------ сверка амортизации
+// ------------------------------------------------------------- аномалии
 
-export type AmortCheckWidgetData = {
-  /** активные вещи, у которых график начислений бьётся с ценой или сроком */
-  broken: { name: string; price: number; scheduled: number; diff: number; countDiff: number }[];
-  okCount: number;
-  totalAssets: number;
+export type Anomaly = {
+  kind: 'missing' | 'spike' | 'quiet' | 'new';
+  title: string;
+  text: string;
 };
 
-export async function getAmortCheckWidget(): Promise<AmortCheckWidgetData> {
+/** Аномалии месяца против шести предыдущих: пропавшие регулярные категории,
+    всплески, затишья и новички. */
+export async function getAnomalies(ym: string): Promise<Anomaly[]> {
   const res = await db.execute(sql`
-    SELECT a.name,
-           a.initial_price + COALESCE(adj.s, 0) AS price,
-           COALESCE(acc.s, 0) AS scheduled,
-           COALESCE(acc.cnt, 0) AS cnt,
-           a.term_months
-    FROM assets a
-    LEFT JOIN LATERAL (SELECT sum(amount) AS s FROM asset_adjustments WHERE asset_id = a.id) adj ON true
-    LEFT JOIN LATERAL (
-      SELECT sum(amount) AS s, count(*) AS cnt FROM amortization_accruals WHERE asset_id = a.id
-    ) acc ON true
-    WHERE a.disposed_at IS NULL
+    SELECT c.name, to_char(date_trunc('month', v.date), 'YYYY-MM') AS ym, sum(v.amount) AS s
+    FROM v_expenses_actual v JOIN categories c ON c.id = v.category_id
+    WHERE v.src = 'expense' AND v.date >= ${monthsBack(ym, 6)} AND v.date <= ${monthEnd(ym)}
+    GROUP BY 1, 2
   `);
-  const rows = (res.rows as any[]).map((r) => ({
-    name: String(r.name),
-    price: round2(toNum(r.price)),
-    scheduled: round2(toNum(r.scheduled)),
-    cnt: Number(r.cnt),
-    term: Number(r.term_months),
-  }));
-  const broken = rows
-    .filter((r) => Math.abs(r.scheduled - r.price) > 0.01 || r.cnt !== r.term)
-    .map((r) => ({
-      name: r.name,
-      price: r.price,
-      scheduled: r.scheduled,
-      diff: round2(r.scheduled - r.price),
-      countDiff: r.cnt - r.term,
-    }))
-    .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
-    .slice(0, 20);
-  return { broken, okCount: rows.length - broken.length, totalAssets: rows.length };
+  const byCat = new Map<string, Map<string, number>>();
+  for (const r of res.rows as any[]) {
+    const m = byCat.get(String(r.name)) ?? new Map();
+    m.set(String(r.ym), toNum(r.s));
+    byCat.set(String(r.name), m);
+  }
+
+  const anomalies: { a: Anomaly; weight: number }[] = [];
+  for (const [name, months] of byCat) {
+    const prev = [...months.entries()].filter(([m]) => m !== ym).map(([, v]) => v);
+    const cur = months.get(ym) ?? 0;
+    const present = prev.filter((v) => v > 0).length;
+    const avg = present > 0 ? prev.reduce((s, v) => s + v, 0) / present : 0;
+
+    if (present >= 4 && cur === 0 && avg >= 300) {
+      anomalies.push({
+        weight: avg,
+        a: {
+          kind: 'missing',
+          title: `«${name}» пропала`,
+          text: `Обычно есть каждый месяц (${present} из 6, в среднем ${fmtMoney(Math.round(avg))}) — в этом месяце ни одной операции.`,
+        },
+      });
+    } else if (present >= 3 && cur >= avg * 2 && cur - avg >= 1000) {
+      anomalies.push({
+        weight: cur - avg,
+        a: {
+          kind: 'spike',
+          title: `«${name}» ×${(cur / avg).toFixed(1).replace('.', ',')}`,
+          text: `${fmtMoney(Math.round(cur))} против обычных ${fmtMoney(Math.round(avg))} за последние полгода.`,
+        },
+      });
+    } else if (present >= 4 && cur > 0 && cur <= avg * 0.4 && avg >= 1000) {
+      anomalies.push({
+        weight: avg - cur,
+        a: {
+          kind: 'quiet',
+          title: `«${name}» затихла`,
+          text: `${fmtMoney(Math.round(cur))} при обычных ${fmtMoney(Math.round(avg))} — в разы меньше привычного.`,
+        },
+      });
+    } else if (present === 0 && cur >= 500) {
+      anomalies.push({
+        weight: cur,
+        a: {
+          kind: 'new',
+          title: `«${name}» — новичок`,
+          text: `${fmtMoney(Math.round(cur))} — за прошлые полгода эта категория не встречалась.`,
+        },
+      });
+    }
+  }
+  return anomalies
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, 8)
+    .map((x) => x.a);
 }

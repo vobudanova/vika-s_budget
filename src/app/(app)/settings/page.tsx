@@ -12,14 +12,16 @@ export const metadata = { title: 'Настройки' };
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
-  const [groups, categories, fundCategories, sources, accounts, inflationRate] = await Promise.all([
-    db.select().from(schema.categoryGroups).orderBy(asc(schema.categoryGroups.sortOrder)),
-    db.select().from(schema.categories).orderBy(asc(schema.categories.sortOrder)),
-    db.select().from(schema.fundCategories).orderBy(asc(schema.fundCategories.sortOrder)),
-    db.select().from(schema.incomeSources).orderBy(asc(schema.incomeSources.sortOrder)),
-    db.select().from(schema.accounts).orderBy(asc(schema.accounts.sortOrder)),
-    getSetting<number>('cap_inflation_rate', 1.1),
-  ]);
+  const [groups, categories, fundCategories, sources, accounts, assetCategories, inflationRate] =
+    await Promise.all([
+      db.select().from(schema.categoryGroups).orderBy(asc(schema.categoryGroups.sortOrder)),
+      db.select().from(schema.categories).orderBy(asc(schema.categories.sortOrder)),
+      db.select().from(schema.fundCategories).orderBy(asc(schema.fundCategories.sortOrder)),
+      db.select().from(schema.incomeSources).orderBy(asc(schema.incomeSources.sortOrder)),
+      db.select().from(schema.accounts).orderBy(asc(schema.accounts.sortOrder)),
+      db.select().from(schema.assetCategories).orderBy(asc(schema.assetCategories.sortOrder)),
+      getSetting<number>('cap_inflation_rate', 1.1),
+    ]);
 
   return (
     <Stack gap="md">
@@ -50,6 +52,7 @@ export default async function SettingsPage() {
           groupName: f.groupName,
           monthlyPlan: toNum(f.monthlyPlan),
         }))}
+        assetCategories={assetCategories.map((c) => ({ id: c.id, name: c.name }))}
         sources={sources.map((s) => ({
           id: s.id,
           name: s.name,

@@ -1,7 +1,9 @@
 'use client';
 
 import { BarChart, LineChart } from '@mantine/charts';
-import { Box, Group, Text, Tooltip } from '@mantine/core';
+import { useState } from 'react';
+import { ActionIcon, Box, Group, Text, Tooltip } from '@mantine/core';
+import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { fmtMoney } from '@/lib/money';
 import { RU_MONTHS, RU_MONTHS_GEN } from '@/lib/dates';
 
@@ -123,24 +125,25 @@ export function CapexChart({ data }: { data: { label: string; pct: number }[] })
   );
 }
 
+const INFLATION_COLORS = ['ink.5', 'violet.4', 'teal.6', 'orange.5', 'blue.4', 'grape.4'];
+
 export function InflationChart({
   series,
+  names,
 }: {
-  series: { label: string; Продукты: number | null; Кафе: number | null }[];
+  series: Record<string, string | number | null>[];
+  names: string[];
 }) {
   return (
     <LineChart
-      h={170}
+      h={200}
       data={series}
       dataKey="label"
-      series={[
-        { name: 'Продукты', color: 'ink.5' },
-        { name: 'Кафе', color: 'violet.4' },
-      ]}
+      series={names.map((name, i) => ({ name, color: INFLATION_COLORS[i % INFLATION_COLORS.length] }))}
       curveType="monotone"
       connectNulls
       withLegend
-      legendProps={{ verticalAlign: 'bottom', height: 26 }}
+      legendProps={{ verticalAlign: 'bottom', height: 48 }}
       valueFormatter={(v) => fmtMoney(Math.round(v))}
     />
   );
@@ -218,5 +221,46 @@ export function FillHeatmap({ year, days }: { year: number; days: { date: string
         ))}
       </Group>
     </Box>
+  );
+}
+
+/** Один год заполненности с перелистыванием стрелками. */
+export function FillYearsBrowser({
+  years,
+}: {
+  years: { year: number; days: { date: string; status: 0 | 1 | 2 }[]; filled: number; passed: number }[];
+}) {
+  const [idx, setIdx] = useState(years.length - 1);
+  const y = years[idx];
+  if (!y) return null;
+  const pct = Math.round((y.filled / Math.max(y.passed, 1)) * 100);
+  return (
+    <>
+      <Group justify="space-between" wrap="nowrap">
+        <Group gap="xs" align="baseline">
+          <Text fw={700} fz="sm" className="money">
+            {y.year}
+          </Text>
+          <Text fz="xs" className="money" c={pct >= 80 ? 'teal.8' : pct >= 40 ? 'orange.8' : 'red.8'}>
+            отмечено {y.filled} из {y.passed} ({pct}%)
+          </Text>
+        </Group>
+        <Group gap={4} wrap="nowrap">
+          <ActionIcon variant="default" size="sm" disabled={idx === 0} onClick={() => setIdx(idx - 1)} aria-label="Предыдущий год">
+            <IconChevronLeft size={14} />
+          </ActionIcon>
+          <ActionIcon
+            variant="default"
+            size="sm"
+            disabled={idx === years.length - 1}
+            onClick={() => setIdx(idx + 1)}
+            aria-label="Следующий год"
+          >
+            <IconChevronRight size={14} />
+          </ActionIcon>
+        </Group>
+      </Group>
+      <FillHeatmap year={y.year} days={y.days} />
+    </>
   );
 }

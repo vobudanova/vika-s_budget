@@ -50,6 +50,13 @@
       "when": 1787415000002,
       "tag": "0006_tx_hidden",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787415000003,
+      "tag": "0007_asset_category_rename",
+      "breakpoints": true
     }
   ]
 }
