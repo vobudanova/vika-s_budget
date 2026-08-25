@@ -5,8 +5,8 @@ import { z } from 'zod';
 import { and, eq, gte, isNull, lte, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { db, schema } from '@/db';
-import { monthEnd, monthStart, todayISO, ymOf, isValidYM } from '@/lib/dates';
-import { parseAmountExpr, round2, toNum } from '@/lib/money';
+import { monthEnd, monthStart, monthsBetweenInclusive, todayISO, ymOf, isValidYM } from '@/lib/dates';
+import { fmtMoney, parseAmountExpr, round2, toNum } from '@/lib/money';
 
 const { capGoals, capMovements, transactions, accounts } = schema;
 
@@ -225,6 +225,41 @@ export async function spendCapGoal(raw: z.input<typeof spendInput>): Promise<Act
           ok: false,
           error: `Распределите ровно накопленную сумму (${accumulated.toFixed(2)} ₽)`,
         };
+      }
+      // предупреждение о переливе: цель не должна получить больше, чем ей
+      // нужно для закрытия месяцев по текущий включительно
+      const currentYm = ymOf(todayISO());
+      for (const t of targets) {
+        const [tg] = await db.select().from(capGoals).where(eq(capGoals.id, t.goalId));
+        if (!tg) return { ok: false, error: 'Цель-получатель не найдена' };
+        const tMoves = await db
+          .select()
+          .from(capMovements)
+          .where(eq(capMovements.capGoalId, t.goalId));
+        const tContributed = round2(tMoves.reduce((s, m) => s + toNum(m.amount), 0));
+        const own = tMoves
+          .filter((m) => m.source === 'own_funds')
+          .map((m) => ymOf(String(m.date)))
+          .sort();
+        let startYm = own[0] ?? currentYm;
+        if (tg.assetId) {
+          const [asset] = await db
+            .select({ purchaseDate: schema.assets.purchaseDate })
+            .from(schema.assets)
+            .where(eq(schema.assets.id, tg.assetId));
+          if (asset?.purchaseDate) startYm = ymOf(String(asset.purchaseDate));
+        }
+        const monthsDue = Math.min(monthsBetweenInclusive(startYm, currentYm), tg.termMonths);
+        const needToDate = round2(
+          Math.min(monthsDue * toNum(tg.monthlyContribution), toNum(tg.targetAmount)),
+        );
+        const room = round2(needToDate - tContributed);
+        if (t.amount > room + 1) {
+          return {
+            ok: false,
+            error: `В «${tg.name}» уходит ${fmtMoney(t.amount)}, а для закрытия месяцев по текущий ей нужно только ${fmtMoney(Math.max(room, 0))}. Уменьшите сумму или распределите остаток в другие цели.`,
+          };
+        }
       }
       const group = randomUUID();
       await db.transaction(async (tx) => {

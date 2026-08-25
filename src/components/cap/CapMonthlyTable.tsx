@@ -14,10 +14,13 @@ export function CapMonthlyTable({
   columns,
   categories,
   cells,
+  transfers,
 }: {
   columns: CapMonthCol[]; // все месяцы по возрастанию
   categories: string[];
   cells: Record<string, CapMonthCell>; // `${category}:${ym}`
+  /** переводы на счёт КАП по месяцам — сверка с таблицей месяца */
+  transfers: Record<string, number>;
 }) {
   const WINDOW = 6;
   const [end, setEnd] = useState(columns.length); // окно [end-6, end)
@@ -114,6 +117,39 @@ export function CapMonthlyTable({
                     </Text>
                     <Text fz={10} c="dimmed" className="money" lh={1.2}>
                       план {num(plan)}
+                    </Text>
+                  </Table.Td>
+                );
+              })}
+            </Table.Tr>
+            <Table.Tr>
+              <Table.Td style={{ borderTop: '2px solid var(--table-border-color, var(--mantine-color-gray-3))' }}>
+                <Text fz="sm" c="dimmed">
+                  Переводы на КАП
+                </Text>
+                <Text fz={10} c="dimmed" lh={1.2}>
+                  сверка с таблицей месяца
+                </Text>
+              </Table.Td>
+              {visible.map((c) => {
+                const fact = categories.reduce((s, cat) => s + (cells[`${cat}:${c.ym}`]?.fact ?? 0), 0);
+                const tr = transfers[c.ym] ?? 0;
+                const match = Math.abs(tr - fact) <= 1;
+                return (
+                  <Table.Td
+                    key={c.ym}
+                    ta="right"
+                    style={{ borderTop: '2px solid var(--table-border-color, var(--mantine-color-gray-3))' }}
+                  >
+                    <Text
+                      fz="sm"
+                      className="money"
+                      c={tr < 0.005 && fact < 0.005 ? 'gray.4' : match ? 'teal.8' : 'red.8'}
+                    >
+                      {num(tr)}
+                    </Text>
+                    <Text fz={10} c="dimmed" className="money" lh={1.2}>
+                      {match ? 'сходится ✓' : `разница ${num(tr - fact)}`}
                     </Text>
                   </Table.Td>
                 );

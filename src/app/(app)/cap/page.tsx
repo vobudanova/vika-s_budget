@@ -18,10 +18,12 @@ import { CapGoalRow } from '@/components/cap/CapGoalRow';
 import { AllocationsValue } from '@/components/cap/CapReconcile';
 import { CapMonthlyTable } from '@/components/cap/CapMonthlyTable';
 import { CapPaymentButton } from '@/components/cap/CapPaymentButton';
+import { sql } from 'drizzle-orm';
+import { db } from '@/db';
 import { getCapOverview, type CapGoalOverview } from '@/queries/cap';
 import { getReference } from '@/queries/core';
 import { RU_MONTHS, todayISO, ymAdd, ymOf, ymTitle } from '@/lib/dates';
-import { fmtMoneyExact } from '@/lib/money';
+import { fmtMoneyExact, toNum } from '@/lib/money';
 import { WipeButton } from '@/components/WipeButton';
 
 export const metadata = { title: 'КАП' };
@@ -56,6 +58,18 @@ export default async function CapPage() {
   for (const [key, list] of byCategory) {
     if (list.length === 0) byCategory.delete(key);
     else list.sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''));
+  }
+
+  // переводы на счёт КАП по месяцам — сверка с таблицей месяца
+  const trRes = await db.execute(sql`
+    SELECT to_char(date_trunc('month', t.date), 'YYYY-MM') AS ym, sum(t.amount) AS s
+    FROM transactions t JOIN accounts ca ON ca.id = t.counter_account_id
+    WHERE t.kind = 'transfer' AND ca.type = 'savings_cap'
+    GROUP BY 1
+  `);
+  const monthTransfers: Record<string, number> = {};
+  for (const r of trRes.rows as Array<{ ym: string; s: string }>) {
+    monthTransfers[String(r.ym)] = toNum(r.s);
   }
 
   // «Взносы по месяцам»: факт (флажки + перетоки) и план (КАП/мес) по категориям
@@ -223,7 +237,7 @@ export default async function CapPage() {
           </Stack>
         </Card>
       )}
-      <CapMonthlyTable columns={monthCols} categories={monthCats} cells={monthCells} />
+      <CapMonthlyTable columns={monthCols} categories={monthCats} cells={monthCells} transfers={monthTransfers} />
       <WipeButton scope={{ scope: 'cap' }} label="все цели КАП и их движения" />
     </Stack>
   );
