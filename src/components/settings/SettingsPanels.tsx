@@ -33,8 +33,8 @@ import {
   moveAssetCategory,
   renameAssetCategory,
   setAccountInTotal,
+  updateCategory,
   renameIncomeSource,
-  renameCategory,
   setCategoryPendingDelete,
   toggleAccountActive,
   unarchiveCategory,
@@ -49,6 +49,7 @@ type Cat = {
   id: number;
   groupId: number;
   name: string;
+  activeFrom: string;
   activeTo: string | null;
   pendingDelete: boolean;
 };
@@ -223,7 +224,7 @@ function CategoriesPanel({ groups, categories }: { groups: Grp[]; categories: Ca
                   <Text fz="xs" td={c.pendingDelete ? 'line-through' : undefined} c={c.pendingDelete ? 'red.7' : undefined}>
                     {c.name}
                   </Text>
-                  <Tooltip label="Переименовать (изменится во всех прошлых и будущих периодах)">
+                  <Tooltip label="Изменить: название и период действия">
                     <ActionIcon size="xs" variant="subtle" color="gray" onClick={() => setRenaming(c)}>
                       <IconPencil size={12} />
                     </ActionIcon>
@@ -252,28 +253,54 @@ function CategoriesPanel({ groups, categories }: { groups: Grp[]; categories: Ca
 
 function RenameModal({ cat, onClose }: { cat: Cat | null; onClose: () => void }) {
   const [value, setValue] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [prev, setPrev] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
   if (cat && prev !== cat.id) {
     setValue(cat.name);
+    setFrom(cat.activeFrom);
+    setTo(cat.activeTo ?? '');
     setPrev(cat.id);
   }
+  if (!cat && prev !== null) setPrev(null);
   const save = () =>
     startTransition(async () => {
       if (!cat) return;
-      notify(await renameCategory(cat.id, value), 'Переименовано во всех периодах');
-      onClose();
+      const res = await updateCategory({ id: cat.id, name: value, activeFrom: from, activeTo: to });
+      notify(res, 'Категория обновлена');
+      if (res.ok) onClose();
     });
   return (
-    <FormDrawer opened={!!cat} onClose={onClose} title="Переименовать категорию" desktopSize="sm">
+    <FormDrawer opened={!!cat} onClose={onClose} title="Изменить категорию" desktopSize="sm">
       <Stack gap="sm">
         <TextInput label="Название" value={value} onChange={(e) => setValue(e.currentTarget.value)} autoFocus />
+        <Group grow>
+          <TextInput
+            label="Действует с"
+            value={from}
+            onChange={(e) => setFrom(e.currentTarget.value)}
+            placeholder="2025-01-01"
+            className="money"
+          />
+          <TextInput
+            label="Действует по"
+            value={to}
+            onChange={(e) => setTo(e.currentTarget.value)}
+            placeholder="пусто — бессрочно"
+            className="money"
+          />
+        </Group>
+        <Text fz="xs" c="dimmed">
+          «Действует с» решает, в каких днях и месяцах категория видна: чтобы вносить траты задним
+          числом, поставьте дату раньше. Название меняется во всех периодах сразу.
+        </Text>
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>
             Отмена
           </Button>
-          <Button onClick={save} loading={pending} disabled={!value.trim()}>
-            Переименовать
+          <Button onClick={save} loading={pending} disabled={!value.trim() || !from.trim()}>
+            Сохранить
           </Button>
         </Group>
       </Stack>

@@ -43,6 +43,7 @@ export default async function SettingsPage() {
           id: c.id,
           groupId: c.groupId,
           name: c.name,
+          activeFrom: c.activeFrom,
           activeTo: c.activeTo,
           pendingDelete: c.pendingDelete,
         }))}

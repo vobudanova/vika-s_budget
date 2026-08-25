@@ -367,3 +367,34 @@ export async function setAccountInTotal(id: number, value: boolean): Promise<Act
     return fail(e);
   }
 }
+
+/** Правка категории: название и период действия. «Действует с» управляет тем,
+    в каких днях/месяцах категория видна (ввод задним числом); пустое
+    «действует по» — бессрочно. */
+const categoryUpdateInput = z.object({
+  id: z.coerce.number().int().positive(),
+  name: z.string().trim().min(1, 'Пустое название').max(120),
+  activeFrom: z.string().refine((s) => /^\d{4}-\d{2}-\d{2}$/.test(s), 'Дата в формате ГГГГ-ММ-ДД'),
+  activeTo: z
+    .string()
+    .refine((s) => s === '' || /^\d{4}-\d{2}-\d{2}$/.test(s), 'Дата в формате ГГГГ-ММ-ДД')
+    .optional(),
+});
+
+export async function updateCategory(raw: z.input<typeof categoryUpdateInput>): Promise<ActionResult> {
+  try {
+    const input = categoryUpdateInput.parse(raw);
+    const activeTo = input.activeTo ? input.activeTo : null;
+    if (activeTo && activeTo < input.activeFrom) {
+      return { ok: false, error: '«Действует по» раньше, чем «действует с»' };
+    }
+    await db
+      .update(categories)
+      .set({ name: input.name, activeFrom: input.activeFrom, activeTo })
+      .where(eq(categories.id, input.id));
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
