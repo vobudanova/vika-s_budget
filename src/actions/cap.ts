@@ -182,14 +182,17 @@ export async function spendCapGoal(raw: z.input<typeof spendInput>): Promise<Act
     const input = spendInput.parse(raw);
     const [goal] = await db.select().from(capGoals).where(eq(capGoals.id, input.goalId));
     if (!goal) return { ok: false, error: 'Цель не найдена' };
-    if (goal.spentAt) return { ok: false, error: 'Цель уже потрачена' };
 
     const movements = await db
       .select()
       .from(capMovements)
       .where(eq(capMovements.capGoalId, input.goalId));
     const accumulated = round2(movements.reduce((s, m) => s + toNum(m.amount), 0));
-    if (accumulated <= 0) return { ok: false, error: 'По цели ничего не накоплено' };
+    // у потраченной цели может остаться положительный остаток (например,
+    // вернувшийся излишек перераспределения) — его можно перенести или вернуть
+    if (accumulated <= 0) {
+      return { ok: false, error: goal.spentAt ? 'Цель уже потрачена' : 'По цели ничего не накоплено' };
+    }
 
     if (input.mode === 'return') {
       if (!input.toAccountId) return { ok: false, error: 'Выберите счёт возврата' };

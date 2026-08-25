@@ -17,6 +17,7 @@ import { CardLabel } from '@/components/CardLabel';
 import { CapGoalRow } from '@/components/cap/CapGoalRow';
 import { AllocationsValue } from '@/components/cap/CapReconcile';
 import { CapMonthlyTable } from '@/components/cap/CapMonthlyTable';
+import { SpentLeftover } from '@/components/cap/SpentLeftover';
 import { CapPaymentButton } from '@/components/cap/CapPaymentButton';
 import { sql } from 'drizzle-orm';
 import { db } from '@/db';
@@ -225,13 +226,22 @@ export default async function CapPage() {
           <Stack gap="xs">
             <CardLabel>Завершено</CardLabel>
             {spentGoals.map((g) => (
-              <Group key={g.id} justify="space-between">
+              <Group key={g.id} justify="space-between" wrap="wrap" gap="xs">
                 <Text fz="sm" c="dimmed">
                   {g.name}
                 </Text>
-                <Text fz="sm" c="dimmed" className="money">
-                  {fmtMoneyExact(g.target)} · {ymTitle(ymOf(g.spentAt ?? today))}
-                </Text>
+                <Group gap="md" wrap="nowrap">
+                  {g.contributed > 0.005 && (
+                    <SpentLeftover
+                      goal={g}
+                      otherGoals={openGoalsForTransfer.filter((o) => o.id !== g.id)}
+                      returnAccounts={moneyAccounts}
+                    />
+                  )}
+                  <Text fz="sm" c="dimmed" className="money">
+                    {fmtMoneyExact(g.target)} · {ymTitle(ymOf(g.spentAt ?? today))}
+                  </Text>
+                </Group>
               </Group>
             ))}
           </Stack>

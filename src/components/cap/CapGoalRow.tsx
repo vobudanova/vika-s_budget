@@ -203,7 +203,7 @@ export function CapGoalRow({
   );
 }
 
-function SpendDrawer({
+export function SpendDrawer({
   goal,
   opened,
   onClose,
