@@ -6,7 +6,7 @@ import { IconPencil, IconX } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { FormDrawer } from '@/components/FormDrawer';
 import { getCellBreakdown, type CellBreakdown, type CellItem } from '@/actions/breakdown';
-import { deleteFundMovement, updateFundMovement } from '@/actions/fund';
+import { addFundCellMovement, deleteFundMovement, updateFundMovement } from '@/actions/fund';
 import { confirmDanger } from '@/lib/confirm';
 import { Money } from '@/components/Money';
 import { fmtMoney } from '@/lib/money';
@@ -84,6 +84,16 @@ export function CellBreakdownDrawer({
       )}
       {data && !editing && (
         <Stack gap={0}>
+          {query && ['fund-in', 'ks'].includes(query.section) && query.row && (
+            <AddCellMoveForm
+              key={`${query.section}:${query.row}:${query.from}`}
+              section={query.section as 'fund-in' | 'ks'}
+              fundCategoryId={Number(query.row)}
+              from={query.from}
+              to={query.to}
+              onAdded={() => setReloadKey((k) => k + 1)}
+            />
+          )}
           <Group justify="space-between" pb="sm">
             <Text fz="sm" c="dimmed">
               {data.items.length} зап.
@@ -183,6 +193,74 @@ function EditMoveForm({ item, onDone }: { item: CellItem; onDone: (changed: bool
           Сохранить
         </Button>
       </Group>
+    </Stack>
+  );
+}
+
+/** Быстрый ввод значения в ячейку КС: пополнение или расход без переводов. */
+function AddCellMoveForm({
+  section,
+  fundCategoryId,
+  from,
+  to,
+  onAdded,
+}: {
+  section: 'fund-in' | 'ks';
+  fundCategoryId: number;
+  from: string;
+  to: string;
+  onAdded: () => void;
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const defaultDate = today >= from && today <= to ? today : to;
+  const [amount, setAmount] = useState('');
+  const [date, setDate] = useState(defaultDate);
+  const [note, setNote] = useState('');
+  const [pending, startTransition] = useTransition();
+
+  const add = () =>
+    startTransition(async () => {
+      const res = await addFundCellMovement({
+        fundCategoryId,
+        side: section === 'fund-in' ? 'in' : 'out',
+        date,
+        amount,
+        note: note || undefined,
+      });
+      if (!res.ok) notifications.show({ color: 'red', message: res.error });
+      else {
+        setAmount('');
+        setNote('');
+        onAdded();
+      }
+    });
+
+  return (
+    <Stack gap={6} pb="sm">
+      <Group gap="xs" align="flex-end" wrap="nowrap">
+        <TextInput
+          label={section === 'fund-in' ? 'Отложить' : 'Израсходовано'}
+          placeholder="5 000"
+          value={amount}
+          onChange={(e) => setAmount(e.currentTarget.value)}
+          className="money"
+          inputMode="decimal"
+          style={{ flex: 1 }}
+        />
+        <TextInput label="Дата" value={date} onChange={(e) => setDate(e.currentTarget.value)} w={120} />
+        <Button onClick={add} loading={pending} disabled={!amount.trim()}>
+          Внести
+        </Button>
+      </Group>
+      <TextInput
+        placeholder="Заметка (необязательно)"
+        value={note}
+        onChange={(e) => setNote(e.currentTarget.value)}
+        size="xs"
+      />
+      <Text fz="xs" c="dimmed">
+        Запись остаётся внутри КС — переводов и операций по счетам не создаёт.
+      </Text>
     </Stack>
   );
 }

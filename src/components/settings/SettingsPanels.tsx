@@ -6,6 +6,7 @@ import {
   Button,
   Card,
   Group,
+  Switch,
   NumberInput,
   Select,
   Stack,
@@ -31,6 +32,7 @@ import {
   renameAccount,
   moveAssetCategory,
   renameAssetCategory,
+  setAccountInTotal,
   renameIncomeSource,
   renameCategory,
   setCategoryPendingDelete,
@@ -53,7 +55,7 @@ type Cat = {
 type Grp = { id: number; name: string };
 type FundCat = { id: number; name: string; groupName: string; monthlyPlan: number };
 type Source = { id: number; name: string; type: string; expectedMonthly: number | null };
-type Account = { id: number; name: string; type: string; isActive: boolean };
+type Account = { id: number; name: string; type: string; isActive: boolean; includeInTotal: boolean };
 
 const notify = (res: { ok: boolean; error?: string }, okMsg: string) =>
   notifications.show(
@@ -588,6 +590,21 @@ function AccountsPanel({ accounts }: { accounts: Account[] }) {
               </Text>
             </Text>
             <Group gap={2} wrap="nowrap">
+              <Tooltip label="Учитывать в итоговой сумме на «Балансе»">
+                <Switch
+                  size="xs"
+                  checked={a.includeInTotal}
+                  onChange={(e) => {
+                    const value = e.currentTarget.checked;
+                    startTransition(async () => {
+                      notify(await setAccountInTotal(a.id, value), 'Итог баланса обновлён');
+                    });
+                  }}
+                  label="в итоге"
+                  labelPosition="left"
+                  styles={{ label: { fontSize: 11, color: 'var(--mantine-color-gray-6)' } }}
+                />
+              </Tooltip>
               <Tooltip label="Переименовать">
                 <ActionIcon variant="subtle" color="gray" size="sm" onClick={() => setRenaming(a)}>
                   <IconPencil size={14} stroke={1.6} />

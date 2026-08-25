@@ -356,3 +356,14 @@ export async function moveAssetCategory(id: number, dir: -1 | 1): Promise<Action
     return fail(e);
   }
 }
+
+/** Входит ли счёт в итоговую сумму на странице «Баланс». */
+export async function setAccountInTotal(id: number, value: boolean): Promise<ActionResult> {
+  try {
+    await db.update(accounts).set({ includeInTotal: value }).where(eq(accounts.id, id));
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}

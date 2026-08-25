@@ -36,9 +36,29 @@ const CELL_PY = 5; // строки «Начисленные»/«Фактичес
 const ROW_PY = 3; // заголовки групп
 const HEAD_PY = 4; // шапка с числами дней/месяцами (−15%)
 const SECTION_GAP = 10; // воздух перед заголовком группы категорий
-// строки категорий: −30% высоты, зазор сверху, текст по центру остатка
-const CAT_PT = 4;
+// строки категорий: −30% высоты, текст по центру; зазор — отдельной
+// невидимой строкой-полоской над каждой (не внутри строки)
+const CAT_PY = 2;
 const CAT_LH = 1.2;
+const CAT_GAP = 4;
+
+/** Невидимая узкая полоска над строкой категории: без границ и разделителей. */
+export function SpacerRow({ cols }: { cols: number }) {
+  return (
+    <Table.Tr>
+      <Table.Td
+        colSpan={cols}
+        style={{
+          height: CAT_GAP,
+          padding: 0,
+          border: 'none',
+          borderInlineEnd: 'none',
+          background: 'var(--mantine-color-white)',
+        }}
+      />
+    </Table.Tr>
+  );
+}
 const HEAD_FZ = 22; // числа дней и названия месяцев (−15%)
 const CELL_PX = 14;
 
@@ -338,13 +358,14 @@ function Section({
         ))}
       </Table.Tr>
       {!collapsed &&
-        s.rows.map((r) => (
+        s.rows.flatMap((r) => [
+          <SpacerRow key={`${r.key}-gap`} cols={columns.length + 2} />,
           <Table.Tr key={r.key}>
             <Table.Td
               style={{
                 ...firstCol,
-                paddingTop: CAT_PT,
-                paddingBottom: 0,
+                paddingTop: CAT_PY,
+                paddingBottom: CAT_PY,
                 lineHeight: CAT_LH,
                 verticalAlign: 'middle',
               }}
@@ -385,8 +406,8 @@ function Section({
                 onClick={onCell ? () => onCell({ section: s.key, row: r.key, col: c.key, rowTitle: r.name }) : undefined}
               />
             ))}
-          </Table.Tr>
-        ))}
+          </Table.Tr>,
+        ])}
     </>
   );
 }
@@ -447,7 +468,7 @@ export function NumCell({
         ...(py !== undefined ? { paddingTop: py, paddingBottom: py } : null),
         ...(pt !== undefined ? { paddingTop: pt } : null),
         ...(compact
-          ? { paddingTop: CAT_PT, paddingBottom: 0, lineHeight: CAT_LH, verticalAlign: 'middle' as const }
+          ? { paddingTop: CAT_PY, paddingBottom: CAT_PY, lineHeight: CAT_LH, verticalAlign: 'middle' as const }
           : null),
         ...(bg ? { backgroundColor: bg } : null),
         ...(onClick ? { cursor: 'pointer' } : null),

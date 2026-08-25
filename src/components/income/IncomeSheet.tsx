@@ -66,8 +66,8 @@ export function IncomeSheet({
         c={isZero ? 'gray.4' : undefined}
         onClick={opts.onClick}
         style={{
-          paddingTop: opts.pt ?? (opts.compact ? 4 : ROW_PY),
-          paddingBottom: opts.compact ? 0 : ROW_PY,
+          paddingTop: opts.pt ?? (opts.compact ? 2 : ROW_PY),
+          paddingBottom: opts.compact ? 2 : ROW_PY,
           ...(opts.compact ? { lineHeight: 1.2, verticalAlign: 'middle' as const } : null),
           ...(opts.onClick ? { cursor: 'pointer' } : null),
         }}
@@ -158,10 +158,16 @@ export function IncomeSheet({
                     }),
                   )}
                 </Table.Tr>,
-                ...g.sources.map((s) => (
+                ...g.sources.flatMap((s) => [
+                  <Table.Tr key={`${s.id}-gap`}>
+                    <Table.Td
+                      colSpan={14}
+                      style={{ height: 4, padding: 0, border: 'none', background: 'var(--mantine-color-white)' }}
+                    />
+                  </Table.Tr>,
                   <Table.Tr key={s.id}>
                     <Table.Td
-                      style={{ paddingTop: 4, paddingBottom: 0, lineHeight: 1.2, verticalAlign: 'middle' }}
+                      style={{ paddingTop: 2, paddingBottom: 2, lineHeight: 1.2, verticalAlign: 'middle' }}
                     >
                       <Text fz={FS} pl={16} c="dark.4" truncate lh={1.2}>
                         {s.name}
@@ -179,8 +185,8 @@ export function IncomeSheet({
                         onClick: () => openCell(`src:${s.id}`, s.name, i + 1),
                       }),
                     )}
-                  </Table.Tr>
-                )),
+                  </Table.Tr>,
+                ]),
               ])}
             </Table.Tbody>
           </Table>

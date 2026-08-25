@@ -57,6 +57,13 @@
       "when": 1787415000003,
       "tag": "0007_asset_category_rename",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787415000004,
+      "tag": "0008_include_in_total",
+      "breakpoints": true
     }
   ]
 }

@@ -17,7 +17,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { ViewNav } from '@/components/ViewNav';
 import { Money } from '@/components/Money';
 import { CardLabel } from '@/components/CardLabel';
-import { FundMovementsList, FundToolbar } from '@/components/fund/FundActions';
+import { FundMovementsList } from '@/components/fund/FundActions';
 import { FundSheet } from '@/components/fund/FundSheet';
 import { getFundOverview } from '@/queries/fund';
 import { getReference } from '@/queries/core';
@@ -55,20 +55,6 @@ export default async function FundPage() {
             Краткосрочные сбережения · остаток {fmtMoney(fund.totalBalance)} · план{' '}
             {fmtMoney(fund.planTotal)}/мес
           </>
-        }
-        right={
-          <FundToolbar
-            planTotal={fund.planTotal}
-            offsetsTotal={fund.pendingOffsetsTotal}
-            toTransfer={fund.nextTopupAmount}
-            accounts={moneyAccounts}
-            defaultAccountId={ref.accounts.find((a) => a.type === 'checking')?.id ?? null}
-            fundCategories={ref.fundCategories.map((f) => ({
-              id: f.id,
-              name: f.name,
-              groupName: f.groupName,
-            }))}
-          />
         }
       />
 

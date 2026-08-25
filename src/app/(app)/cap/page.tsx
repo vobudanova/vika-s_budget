@@ -15,10 +15,12 @@ import { PageHeader } from '@/components/PageHeader';
 import { Money } from '@/components/Money';
 import { CardLabel } from '@/components/CardLabel';
 import { CapGoalRow } from '@/components/cap/CapGoalRow';
+import { AllocationsValue } from '@/components/cap/CapReconcile';
+import { CapMonthlyTable } from '@/components/cap/CapMonthlyTable';
 import { CapPaymentButton } from '@/components/cap/CapPaymentButton';
 import { getCapOverview, type CapGoalOverview } from '@/queries/cap';
 import { getReference } from '@/queries/core';
-import { todayISO, ymOf, ymTitle } from '@/lib/dates';
+import { RU_MONTHS, todayISO, ymAdd, ymOf, ymTitle } from '@/lib/dates';
 import { fmtMoneyExact } from '@/lib/money';
 import { WipeButton } from '@/components/WipeButton';
 
@@ -56,6 +58,38 @@ export default async function CapPage() {
     else list.sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''));
   }
 
+  // «Взносы по месяцам»: факт (флажки + перетоки) и план (КАП/мес) по категориям
+  const monthCats = [...byCategory.keys()];
+  const allYms = new Set<string>();
+  for (const g of cap.goals) for (const ym of Object.keys(g.monthsFlags)) allYms.add(ym);
+  const startYmOf = (g: CapGoalOverview) =>
+    (g.startDate ? ymOf(g.startDate) : null) ?? g.firstOwnYm ?? currentYm;
+  for (const g of cap.goals) allYms.add(startYmOf(g));
+  const ymsSorted = [...allYms].sort();
+  const firstYm = ymsSorted[0] ?? currentYm;
+  const monthCols: { ym: string; label: string }[] = [];
+  for (let ym = firstYm; ym <= currentYm; ym = ymAdd(ym, 1)) {
+    monthCols.push({
+      ym,
+      label: `${RU_MONTHS[Number(ym.slice(5, 7)) - 1].slice(0, 3).toLowerCase()} ’${ym.slice(2, 4)}`,
+    });
+  }
+  const monthCells: Record<string, { fact: number; plan: number }> = {};
+  for (const g of cap.goals) {
+    const cat = g.assetCategoryName ?? 'Без категории';
+    const start = startYmOf(g);
+    const endYm = ymAdd(start, g.termMonths - 1);
+    const spentYm = g.spentAt ? ymOf(g.spentAt) : null;
+    for (const c of monthCols) {
+      const key = `${cat}:${c.ym}`;
+      const cell = monthCells[key] ?? { fact: 0, plan: 0 };
+      const flag = g.monthsFlags[c.ym];
+      if (flag) cell.fact += flag.amount + flag.inflow;
+      if (c.ym >= start && c.ym <= endYm && (!spentYm || c.ym <= spentYm)) cell.plan += g.monthly;
+      monthCells[key] = cell;
+    }
+  }
+
   return (
     <Stack gap="md" className="cap-page">
       <PageHeader
@@ -74,11 +108,11 @@ export default async function CapPage() {
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
         <Card>
           <Stack gap="sm">
-            <CardLabel>Сверка КАП-фонда</CardLabel>
+            <CardLabel>Сверка</CardLabel>
             <Table verticalSpacing={4} fz="sm">
               <TableTbody>
                 <TableTr>
-                  <TableTd px={0}>Σ леджера по всем целям</TableTd>
+                  <TableTd px={0}>Отложено</TableTd>
                   <TableTd px={0} ta="right">
                     <Money value={cap.ledgerTotal} fz="sm" exact />
                   </TableTd>
@@ -91,8 +125,8 @@ export default async function CapPage() {
                 </TableTr>
                 <TableTr>
                   <TableTd px={0}>Размещения фонда (доллары, вклады…)</TableTd>
-                  <TableTd px={0} ta="right">
-                    <Money value={cap.allocationsNet} fz="sm" exact />
+                  <TableTd px={0}>
+                    <AllocationsValue value={cap.allocationsNet} />
                   </TableTd>
                 </TableTr>
                 <TableTr>
@@ -189,6 +223,7 @@ export default async function CapPage() {
           </Stack>
         </Card>
       )}
+      <CapMonthlyTable columns={monthCols} categories={monthCats} cells={monthCells} />
       <WipeButton scope={{ scope: 'cap' }} label="все цели КАП и их движения" />
     </Stack>
   );

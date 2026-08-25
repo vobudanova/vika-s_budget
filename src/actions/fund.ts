@@ -374,3 +374,37 @@ export async function updateFundMovement(raw: z.input<typeof updateMoveInput>): 
     return fail(e);
   }
 }
+
+/** Ручной ввод значения в ячейку листа КС: пополнение («отл.») или расход
+    («израсх.»). Движение живёт только в фонде — переводов не создаёт. */
+const cellMoveInput = z.object({
+  fundCategoryId: z.coerce.number().int().positive(),
+  side: z.enum(['in', 'out']),
+  date: z.string().refine(isValidISODate, 'Некорректная дата'),
+  amount: z.string().transform((v, ctx) => {
+    const n = parseAmountExpr(v);
+    if (!n || n <= 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Некорректная сумма' });
+      return z.NEVER;
+    }
+    return n;
+  }),
+  note: z.string().trim().max(500).optional(),
+});
+
+export async function addFundCellMovement(raw: z.input<typeof cellMoveInput>): Promise<ActionResult> {
+  try {
+    const input = cellMoveInput.parse(raw);
+    await db.insert(fundMovements).values({
+      fundCategoryId: input.fundCategoryId,
+      date: input.date,
+      amount: String(round2(input.side === 'in' ? input.amount : -input.amount)),
+      kind: input.side === 'in' ? 'plan_topup' : 'reimbursement',
+      note: input.note || null,
+    });
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}

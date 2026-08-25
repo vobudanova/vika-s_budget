@@ -178,7 +178,13 @@ export function FundSheet({ categories, year }: { categories: FundCategoryStatus
                     shrink={shrink}
                     openCell={openCell}
                   />,
-                  ...rows.map((c) => (
+                  ...rows.flatMap((c) => [
+                    <Table.Tr key={`gap-${c.id}`}>
+                      <Table.Td
+                        colSpan={28}
+                        style={{ height: 4, padding: 0, border: 'none', background: 'var(--mantine-color-white)' }}
+                      />
+                    </Table.Tr>,
                     <FundRow
                       key={c.id}
                       a={{
@@ -196,8 +202,8 @@ export function FundSheet({ categories, year }: { categories: FundCategoryStatus
                       cellBoxWidth={cellBoxWidth}
                       shrink={shrink}
                       openCell={openCell}
-                    />
-                  )),
+                    />,
+                  ]),
                 ];
               })}
             </Table.Tbody>
@@ -264,9 +270,9 @@ function FundRow({
 }) {
   const strong = kind !== 'row';
   // группы разделены воздухом перед заголовком; строки статей — компактные,
-  // с зазором сверху и центровкой по высоте
-  const padTop = kind === 'group' ? ROW_PY + 10 : kind === 'row' ? 4 : ROW_PY;
-  const padBottom = kind === 'row' ? 0 : ROW_PY;
+  // по центру; зазор над ними — отдельной невидимой строкой в FundSheet
+  const padTop = kind === 'group' ? ROW_PY + 10 : kind === 'row' ? 2 : ROW_PY;
+  const padBottom = kind === 'row' ? 2 : ROW_PY;
   const rowStyle =
     kind === 'row' ? ({ lineHeight: 1.2, verticalAlign: 'middle' } as const) : ({} as const);
   const cell = (v: number, side: 'in' | 'out', m: number) => {

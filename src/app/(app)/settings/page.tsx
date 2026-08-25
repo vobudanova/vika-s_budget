@@ -60,6 +60,7 @@ export default async function SettingsPage() {
           expectedMonthly: s.expectedMonthly ? toNum(s.expectedMonthly) : null,
         }))}
         accounts={accounts.map((a) => ({
+          includeInTotal: a.includeInTotal,
           id: a.id,
           name: a.name,
           type: a.type,

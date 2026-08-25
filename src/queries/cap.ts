@@ -1,7 +1,8 @@
 import { sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { monthEnd, monthsBetweenInclusive, todayISO, ymOf } from '@/lib/dates';
+import { monthEnd, monthsBetweenInclusive, todayISO, ymAdd, ymOf } from '@/lib/dates';
 import { round2, toNum } from '@/lib/money';
+import { getSetting } from '@/queries/core';
 
 export type CapStatus = 'not_started' | 'in_progress' | 'behind' | 'waiting' | 'ready' | 'spent';
 
@@ -82,13 +83,24 @@ export async function getCapOverview(): Promise<CapOverview> {
         sent: prev.sent || m.transactionId !== null,
       };
     }
-    // перетоки из других КАП и перерасчёты закрывают месяц без флажка:
-    // если сумма поступлений месяца покрыла месячный взнос, флажок темнеет
-    for (const m of mine) {
-      if (!['from_cap', 'recalc'].includes(m.source) || m.amount <= 0) continue;
-      const ym = ymOf(m.date);
-      const prev = monthsFlags[ym] ?? { amount: 0, sent: false, inflow: 0 };
-      monthsFlags[ym] = { ...prev, inflow: round2(prev.inflow + m.amount) };
+    // перетоки из других КАП и перерасчёты закрывают САМЫЕ РАННИЕ незакрытые
+    // месяцы — независимо от даты, когда сделано перераспределение
+    let inflowPool = round2(
+      mine
+        .filter((m) => ['from_cap', 'recalc'].includes(m.source) && m.amount > 0)
+        .reduce((s, m) => s + m.amount, 0),
+    );
+    if (inflowPool > 0) {
+      const startYmFlags =
+        (g.asset_purchase_date ? ymOf(String(g.asset_purchase_date)) : null) ?? firstOwnYm ?? currentYm;
+      for (let ym = startYmFlags; ym <= currentYm && inflowPool > 0.005; ym = ymAdd(ym, 1)) {
+        const flag = monthsFlags[ym] ?? { amount: 0, sent: false, inflow: 0 };
+        if (flag.amount >= monthly - 1) continue; // закрыт собственным взносом
+        const need = round2(monthly - flag.amount);
+        const take = Math.min(need, inflowPool);
+        monthsFlags[ym] = { ...flag, inflow: round2(flag.inflow + take) };
+        inflowPool = round2(inflowPool - take);
+      }
     }
 
     let status: CapStatus;
@@ -164,17 +176,8 @@ export async function getCapOverview(): Promise<CapOverview> {
   `);
   const capAccountsBalance = toNum((balRes.rows as any[])[0]?.s);
 
-  const allocRes = await db.execute(sql`
-    SELECT
-      COALESCE(sum(amount) FILTER (WHERE a.type = 'savings_cap'), 0) AS out_sum,
-      COALESCE(sum(amount) FILTER (WHERE ca.type = 'savings_cap'), 0) AS back_sum
-    FROM transactions t
-    LEFT JOIN accounts a ON a.id = t.account_id
-    LEFT JOIN accounts ca ON ca.id = t.counter_account_id
-    WHERE t.fund_allocation = 'cap'
-  `);
-  const alloc = (allocRes.rows as any[])[0];
-  const allocationsNet = round2(toNum(alloc?.out_sum) - toNum(alloc?.back_sum));
+  // размещения вводятся вручную на странице КАП (settings), приоритет за ручным
+  const allocationsNet = round2(await getSetting<number>('cap_allocations', 0));
 
   const reconciliationDiff = round2(ledgerTotal - (capAccountsBalance + allocationsNet));
 
