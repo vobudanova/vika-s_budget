@@ -52,6 +52,8 @@ export default async function SettingsPage() {
           name: f.name,
           groupName: f.groupName,
           monthlyPlan: toNum(f.monthlyPlan),
+          activeFrom: f.activeFrom,
+          activeTo: f.activeTo,
         }))}
         assetCategories={assetCategories.map((c) => ({ id: c.id, name: c.name }))}
         sources={sources.map((s) => ({

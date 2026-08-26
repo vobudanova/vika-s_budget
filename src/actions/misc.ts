@@ -196,6 +196,25 @@ export async function isFilledDay(date: string): Promise<boolean> {
 
 // ------------------------------------------------------------- настройки
 
+/** Отметка «все доходы месяца учтены»: клик по месяцу в шапке таблицы доходов.
+    Хранится списком ym в settings — объективного признака полноты у доходов нет. */
+export async function toggleIncomeMonthClosed(ym: string): Promise<ActionResult> {
+  try {
+    if (!/^\d{4}-\d{2}$/.test(ym)) return { ok: false, error: 'Плохой месяц' };
+    const [row] = await db.select().from(settings).where(eq(settings.key, 'income_closed_months'));
+    const current: string[] = Array.isArray(row?.value) ? (row.value as string[]) : [];
+    const next = current.includes(ym) ? current.filter((m) => m !== ym) : [...current, ym].sort();
+    await db
+      .insert(settings)
+      .values({ key: 'income_closed_months', value: next })
+      .onConflictDoUpdate({ target: settings.key, set: { value: next } });
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
 export async function saveSetting(key: string, value: unknown): Promise<ActionResult> {
   try {
     await db

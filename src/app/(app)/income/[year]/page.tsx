@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { IncomeSheet, type IncomeSheetGroup } from '@/components/income/IncomeSheet';
 import { IncomeToolbar } from '@/components/income/IncomeToolbar';
 import { ViewNav } from '@/components/ViewNav';
-import { getReference } from '@/queries/core';
+import { getReference, getSetting } from '@/queries/core';
 import { categorySelectData } from '@/components/tx-helpers';
 import { todayISO } from '@/lib/dates';
 import { fmtMoney, toNum } from '@/lib/money';
@@ -24,7 +24,10 @@ export default async function IncomePage({ params }: { params: Promise<{ year: s
   const { year } = await params;
   if (!/^\d{4}$/.test(year)) notFound();
   const today = todayISO();
-  const ref = await getReference(today);
+  const [ref, closedMonths] = await Promise.all([
+    getReference(today),
+    getSetting<string[]>('income_closed_months', []),
+  ]);
 
   const matrixRes = await db.execute(sql`
     SELECT s.id, s.name, EXTRACT(MONTH FROM t.date)::int AS m, sum(t.amount) AS total
@@ -110,7 +113,13 @@ export default async function IncomePage({ params }: { params: Promise<{ year: s
         }
       />
       {sourcesWithData.length > 0 ? (
-        <IncomeSheet groups={typeGroups} monthTotals={monthTotals} yearTotal={yearTotal} year={year} />
+        <IncomeSheet
+          groups={typeGroups}
+          monthTotals={monthTotals}
+          yearTotal={yearTotal}
+          year={year}
+          closedMonths={closedMonths}
+        />
       ) : (
         <Card>
           <Text c="dimmed">Доходов в этом году пока нет.</Text>

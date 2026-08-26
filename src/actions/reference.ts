@@ -138,6 +138,62 @@ export async function createFundCategory(
   }
 }
 
+/** Правка статьи КС: название и период действия. Месяцы вне периода в листе КС
+    блокируются; в годах целиком вне периода статья не показывается. */
+const fundCategoryUpdateInput = z.object({
+  id: z.coerce.number().int().positive(),
+  name: z.string().trim().min(1, 'Пустое название').max(120),
+  activeFrom: z.string().refine((s) => /^\d{4}-\d{2}-\d{2}$/.test(s), 'Дата в формате ГГГГ-ММ-ДД'),
+  activeTo: z
+    .string()
+    .refine((s) => s === '' || /^\d{4}-\d{2}-\d{2}$/.test(s), 'Дата в формате ГГГГ-ММ-ДД')
+    .optional(),
+});
+
+export async function updateFundCategory(
+  raw: z.input<typeof fundCategoryUpdateInput>,
+): Promise<ActionResult> {
+  try {
+    const input = fundCategoryUpdateInput.parse(raw);
+    const activeTo = input.activeTo ? input.activeTo : null;
+    if (activeTo && activeTo < input.activeFrom) {
+      return { ok: false, error: '«Действует по» раньше, чем «действует с»' };
+    }
+    await db
+      .update(fundCategories)
+      .set({ name: input.name, activeFrom: input.activeFrom, activeTo })
+      .where(eq(fundCategories.id, input.id));
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function deleteFundCategory(id: number): Promise<ActionResult> {
+  try {
+    const usage = await db.execute(sql`
+      SELECT
+        (SELECT count(*) FROM fund_movements WHERE fund_category_id = ${id}) AS moves,
+        (SELECT count(*) FROM transactions WHERE fund_category_id = ${id}) AS txs
+    `);
+    const u = (usage.rows as any[])[0];
+    const moves = Number(u?.moves ?? 0);
+    const txs = Number(u?.txs ?? 0);
+    if (moves > 0 || txs > 0) {
+      return {
+        ok: false,
+        error: `По статье есть данные (движений: ${moves}, операций: ${txs}) — удалить нельзя. Поставьте «Действует по», чтобы закрыть статью.`,
+      };
+    }
+    await db.delete(fundCategories).where(eq(fundCategories.id, id));
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
 export async function updateFundPlan(id: number, monthlyPlan: number): Promise<ActionResult> {
   try {
     await db
@@ -261,7 +317,7 @@ export async function listEditRefs() {
     db.execute(sql`
       SELECT c.id, c.name, g.name AS group_name
       FROM categories c JOIN category_groups g ON g.id = c.group_id
-      WHERE c.row_type = 'expense' AND c.active_to IS NULL AND NOT c.pending_delete
+      WHERE c.row_type IN ('expense', 'trip') AND c.active_to IS NULL AND NOT c.pending_delete
       ORDER BY g.sort_order, c.sort_order, c.name
     `),
     db.execute(sql`

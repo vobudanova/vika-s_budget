@@ -25,6 +25,8 @@ type Agg = {
   plan: number;
   contrib: number[];
   spent: number[];
+  /** месяцы в сроке действия статьи; вне срока ячейки заблокированы (только у строк) */
+  active?: boolean[];
 };
 
 function aggregate(name: string, key: string, cats: FundCategoryStatus[]): Agg {
@@ -196,6 +198,7 @@ export function FundSheet({ categories, year }: { categories: FundCategoryStatus
                         plan: c.monthlyPlan,
                         contrib: c.monthContrib,
                         spent: c.monthSpent,
+                        active: c.activeMonths,
                       }}
                       kind="row"
                       firstCol={firstCol}
@@ -277,6 +280,28 @@ function FundRow({
     kind === 'row' ? ({ lineHeight: 1.2, verticalAlign: 'middle' } as const) : ({} as const);
   const cell = (v: number, side: 'in' | 'out', m: number) => {
     const isZero = Math.abs(v) < 0.005;
+    const blocked = !!a.active && !a.active[m];
+    if (blocked) {
+      // вне срока действия статьи: без кликов, серая заливка; ненулевые
+      // импортные значения всё же показываем
+      return (
+        <Table.Td
+          key={`${side}${m}`}
+          ta="right"
+          className="money"
+          c="gray.4"
+          title="Вне срока действия статьи"
+          style={{
+            paddingTop: padTop,
+            paddingBottom: padBottom,
+            background: 'var(--mantine-color-gray-0)',
+            ...rowStyle,
+          }}
+        >
+          {isZero ? '' : fmtNumber(v, 0)}
+        </Table.Td>
+      );
+    }
     return (
       <Table.Td
         key={`${side}${m}`}

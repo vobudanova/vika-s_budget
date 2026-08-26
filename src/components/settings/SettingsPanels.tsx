@@ -39,6 +39,8 @@ import {
   toggleAccountActive,
   unarchiveCategory,
   updateFundPlan,
+  updateFundCategory,
+  deleteFundCategory,
   updateIncomeExpected,
   type CategoryUsage,
 } from '@/actions/reference';
@@ -54,7 +56,14 @@ type Cat = {
   pendingDelete: boolean;
 };
 type Grp = { id: number; name: string };
-type FundCat = { id: number; name: string; groupName: string; monthlyPlan: number };
+type FundCat = {
+  id: number;
+  name: string;
+  groupName: string;
+  monthlyPlan: number;
+  activeFrom: string;
+  activeTo: string | null;
+};
 type Source = { id: number; name: string; type: string; expectedMonthly: number | null };
 type Account = { id: number; name: string; type: string; isActive: boolean; includeInTotal: boolean };
 
@@ -350,6 +359,7 @@ function FundPanel({ fundCategories }: { fundCategories: FundCat[] }) {
   const [groupName, setGroupName] = useState('Прочее');
   const [name, setName] = useState('');
   const [plan, setPlan] = useState<number | string>(1000);
+  const [editing, setEditing] = useState<FundCat | null>(null);
   const [pending, startTransition] = useTransition();
 
   const groups = [...new Set(fundCategories.map((c) => c.groupName))];
@@ -376,18 +386,19 @@ function FundPanel({ fundCategories }: { fundCategories: FundCat[] }) {
           Добавить
         </Button>
       </Group>
-      <Table maw={560} verticalSpacing={4} fz="sm">
+      <Table maw={640} verticalSpacing={4} fz="sm">
         <Table.Tbody>
           {fundCategories.map((c) => (
-            <FundRow key={c.id} c={c} />
+            <FundRow key={c.id} c={c} onEdit={() => setEditing(c)} />
           ))}
         </Table.Tbody>
       </Table>
+      <FundEditModal cat={editing} onClose={() => setEditing(null)} />
     </Stack>
   );
 }
 
-function FundRow({ c }: { c: FundCat }) {
+function FundRow({ c, onEdit }: { c: FundCat; onEdit: () => void }) {
   const [plan, setPlan] = useState<number | string>(c.monthlyPlan);
   const [pending, startTransition] = useTransition();
   const changed = Number(plan) !== c.monthlyPlan;
@@ -395,15 +406,28 @@ function FundRow({ c }: { c: FundCat }) {
     startTransition(async () => {
       notify(await updateFundPlan(c.id, Number(plan) || 0), 'План обновлён');
     });
+  const remove = () =>
+    confirmDanger({
+      title: `Удалить статью «${c.name}»?`,
+      message: 'Удаление возможно только для статей без движений и операций.',
+      onConfirm: () =>
+        startTransition(async () => {
+          notify(await deleteFundCategory(c.id), 'Статья удалена');
+        }),
+    });
+  const closed = !!c.activeTo;
   return (
     <Table.Tr>
       <Table.Td>
-        <Text fz="sm">{c.name}</Text>
+        <Text fz="sm" c={closed ? 'dimmed' : undefined}>
+          {c.name}
+        </Text>
         <Text fz="xs" c="dimmed">
           {c.groupName}
+          {closed ? ` · по ${c.activeTo}` : ''}
         </Text>
       </Table.Td>
-      <Table.Td w={160} ta="right">
+      <Table.Td w={220} ta="right">
         <Group gap={4} justify="flex-end" wrap="nowrap">
           <NumberInput size="xs" value={plan} onChange={setPlan} hideControls w={100} styles={{ input: { textAlign: 'right' } }} />
           {changed && (
@@ -411,9 +435,76 @@ function FundRow({ c }: { c: FundCat }) {
               <IconCheck size={14} />
             </ActionIcon>
           )}
+          <Tooltip label="Название и срок действия">
+            <ActionIcon size="sm" variant="subtle" onClick={onEdit}>
+              <IconPencil size={14} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label="Удалить">
+            <ActionIcon size="sm" variant="subtle" color="red" onClick={remove} loading={pending}>
+              <IconTrash size={14} />
+            </ActionIcon>
+          </Tooltip>
         </Group>
       </Table.Td>
     </Table.Tr>
+  );
+}
+
+function FundEditModal({ cat, onClose }: { cat: FundCat | null; onClose: () => void }) {
+  const [value, setValue] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [prev, setPrev] = useState<number | null>(null);
+  const [pending, startTransition] = useTransition();
+  if (cat && prev !== cat.id) {
+    setValue(cat.name);
+    setFrom(cat.activeFrom);
+    setTo(cat.activeTo ?? '');
+    setPrev(cat.id);
+  }
+  if (!cat && prev !== null) setPrev(null);
+  const save = () =>
+    startTransition(async () => {
+      if (!cat) return;
+      const res = await updateFundCategory({ id: cat.id, name: value, activeFrom: from, activeTo: to });
+      notify(res, 'Статья обновлена');
+      if (res.ok) onClose();
+    });
+  return (
+    <FormDrawer opened={!!cat} onClose={onClose} title="Изменить статью КС" desktopSize="sm">
+      <Stack gap="sm">
+        <TextInput label="Название" value={value} onChange={(e) => setValue(e.currentTarget.value)} autoFocus />
+        <Group grow>
+          <TextInput
+            label="Действует с"
+            value={from}
+            onChange={(e) => setFrom(e.currentTarget.value)}
+            placeholder="2025-01-01"
+            className="money"
+          />
+          <TextInput
+            label="Действует по"
+            value={to}
+            onChange={(e) => setTo(e.currentTarget.value)}
+            placeholder="пусто — бессрочно"
+            className="money"
+          />
+        </Group>
+        <Text fz="xs" c="dimmed">
+          В листе КС месяцы вне срока действия блокируются, а в годах целиком вне
+          срока статья не показывается. Название меняется во всех периодах сразу.
+        </Text>
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>
+            Отмена
+          </Button>
+          <Button onClick={save} loading={pending} disabled={!value.trim() || !from.trim()}>
+            Сохранить
+          </Button>
+        </Group>
+      </Stack>
+    </FormDrawer>
   );
 }
 

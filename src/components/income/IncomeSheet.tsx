@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { Card, ScrollArea, Table, Text } from '@mantine/core';
+import { useState, useTransition } from 'react';
+import { Card, ScrollArea, Table, Text, Tooltip } from '@mantine/core';
 import { CellBreakdownDrawer, type CellQuery } from '@/components/sheet/CellBreakdown';
+import { toggleIncomeMonthClosed } from '@/actions/misc';
 import { RU_MONTHS } from '@/lib/dates';
 import { fmtNumber } from '@/lib/money';
 
@@ -10,8 +11,8 @@ const FS = 15;
 const ROW_PY = 3;
 const HEAD_FZ = 22;
 const BORDER = 'var(--table-border-color, var(--mantine-color-gray-3))';
-const bottomLineBg = (px: number) =>
-  `linear-gradient(to top, ${BORDER} ${px}px, var(--mantine-color-white) ${px}px)`;
+const bottomLineBg = (px: number, bg = 'var(--mantine-color-white)') =>
+  `linear-gradient(to top, ${BORDER} ${px}px, ${bg} ${px}px)`;
 
 export type IncomeSheetGroup = {
   type: string;
@@ -25,13 +26,17 @@ export function IncomeSheet({
   monthTotals,
   yearTotal,
   year,
+  closedMonths,
 }: {
   groups: IncomeSheetGroup[];
   monthTotals: number[]; // индексы 0..11
   yearTotal: number;
   year: string;
+  closedMonths: string[]; // ym, у которых все доходы учтены
 }) {
   const [cell, setCell] = useState<{ q: CellQuery; title: string } | null>(null);
+  const [, startTransition] = useTransition();
+  const toggleClosed = (ym: string) => startTransition(() => toggleIncomeMonthClosed(ym).then(() => {}));
 
   const openCell = (row: string | null, title: string, m: number | 'total') => {
     const from = m === 'total' ? `${year}-01-01` : `${year}-${String(m).padStart(2, '0')}-01`;
@@ -104,23 +109,34 @@ export function IncomeSheet({
                     boxShadow: `inset -1px 0 0 0 ${BORDER}`,
                   }}
                 />
-                {RU_MONTHS.map((m) => (
-                  <Table.Th
-                    key={m}
-                    ta="center"
-                    py={5}
-                    style={{
-                      minWidth: 78,
-                      border: 'none',
-                      background: bottomLineBg(1),
-                      boxShadow: `inset -1px 0 0 0 ${BORDER}`,
-                    }}
-                  >
-                    <Text fz={HEAD_FZ} fw={600} c="ink.6">
-                      {m.slice(0, 3)}
-                    </Text>
-                  </Table.Th>
-                ))}
+                {RU_MONTHS.map((m, i) => {
+                  const ym = `${year}-${String(i + 1).padStart(2, '0')}`;
+                  const closed = closedMonths.includes(ym);
+                  return (
+                    <Tooltip
+                      key={m}
+                      label={closed ? 'Все доходы учтены — нажмите, чтобы снять отметку' : 'Нажмите, когда все доходы месяца учтены'}
+                      openDelay={400}
+                    >
+                      <Table.Th
+                        ta="center"
+                        py={5}
+                        onClick={() => toggleClosed(ym)}
+                        style={{
+                          minWidth: 78,
+                          border: 'none',
+                          background: bottomLineBg(1, closed ? 'var(--mantine-color-ink-1)' : undefined),
+                          boxShadow: `inset -1px 0 0 0 ${BORDER}`,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Text fz={HEAD_FZ} fw={600} c="ink.6">
+                          {m.slice(0, 3)}
+                        </Text>
+                      </Table.Th>
+                    </Tooltip>
+                  );
+                })}
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>

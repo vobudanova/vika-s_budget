@@ -71,6 +71,13 @@
       "when": 1787415000005,
       "tag": "0009_return_cap_surplus",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787415001005,
+      "tag": "0010_ks_himchistka_opening",
+      "breakpoints": true
     }
   ]
 }

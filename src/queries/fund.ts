@@ -16,6 +16,8 @@ export type FundCategoryStatus = {
   /** по месяцам года: отложено / израсходовано (индексы 1..12) */
   monthContrib: number[];
   monthSpent: number[];
+  /** действует ли статья в месяце года (индексы 1..12); вне срока ячейки блокируются */
+  activeMonths: boolean[];
 };
 
 export type FundMovementRow = {
@@ -46,8 +48,12 @@ export async function getFundOverview(year: string): Promise<FundOverview> {
   const yearStart = `${year}-01-01`;
   const yearEnd = `${year}-12-31`;
 
+  // статья видна в году, если её срок действия пересекается с годом
+  // (или в году есть движения — импортная страховка); месяцы вне срока
+  // блокируются на листе, в других годах статья не показывается
   const catsRes = await db.execute(sql`
     SELECT fc.id, fc.name, fc.group_name, fc.monthly_plan, fc.opening_balance,
+           fc.active_from, fc.active_to,
            COALESCE(m.total, 0) AS total,
            COALESCE(m.prior, 0) AS prior,
            COALESCE(m.contributed_ytd, 0) AS contributed_ytd,
@@ -61,7 +67,11 @@ export async function getFundOverview(year: string): Promise<FundOverview> {
         sum(-amount) FILTER (WHERE amount < 0 AND date BETWEEN ${yearStart} AND ${yearEnd}) AS spent_ytd
       FROM fund_movements WHERE fund_category_id = fc.id
     ) m ON true
-    WHERE fc.active_to IS NULL OR fc.active_to >= ${yearStart}
+    WHERE (fc.active_from <= ${yearEnd} AND (fc.active_to IS NULL OR fc.active_to >= ${yearStart}))
+       OR EXISTS (
+         SELECT 1 FROM fund_movements
+         WHERE fund_category_id = fc.id AND date BETWEEN ${yearStart} AND ${yearEnd}
+       )
     ORDER BY fc.sort_order
   `);
 
@@ -82,12 +92,19 @@ export async function getFundOverview(year: string): Promise<FundOverview> {
     const id = Number(r.id);
     const monthContrib = Array<number>(13).fill(0);
     const monthSpent = Array<number>(13).fill(0);
+    const activeMonths = Array<boolean>(13).fill(false);
+    const from = String(r.active_from);
+    const to = r.active_to ? String(r.active_to) : null;
     for (let m = 1; m <= 12; m++) {
       const cell = monthMap.get(`${id}:${m}`);
       if (cell) {
         monthContrib[m] = cell.c;
         monthSpent[m] = cell.s;
       }
+      const mm = String(m).padStart(2, '0');
+      const monthStart = `${year}-${mm}-01`;
+      const monthEnd = `${year}-${mm}-${new Date(Number(year), m, 0).getDate()}`;
+      activeMonths[m] = from <= monthEnd && (!to || to >= monthStart);
     }
     return {
       id,
@@ -101,6 +118,7 @@ export async function getFundOverview(year: string): Promise<FundOverview> {
       balance: round2(toNum(r.opening_balance) + toNum(r.total)),
       monthContrib,
       monthSpent,
+      activeMonths,
     };
   });
 
