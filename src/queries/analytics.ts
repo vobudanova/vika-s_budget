@@ -268,30 +268,6 @@ export async function getAnalytics(ym: string): Promise<Analytics> {
   const dw = (weekdayRes.rows as any[])
     .map((r) => ({ dw: Number(r.dw), avg: toNum(r.s) / Math.max(1, Number(r.days)) }))
     .sort((a, b) => b.avg - a.avg);
-  if (dw.length >= 5 && dw[0].avg > 0) {
-    const names = ['понедельникам', 'вторникам', 'средам', 'четвергам', 'пятницам', 'субботам', 'воскресеньям'];
-    const rest = dw.slice(1).reduce((s, x) => s + x.avg, 0) / (dw.length - 1);
-    if (rest > 0 && dw[0].avg / rest >= 1.7) {
-      insights.push({
-        kind: 'finding',
-        title: `По ${names[dw[0].dw - 1]} траты в ${(dw[0].avg / rest).toFixed(1)} раза выше`,
-        text: `В среднем ${money0(dw[0].avg)} против ${money0(rest)} в остальные дни (за последние три месяца).`,
-      });
-    }
-  }
-
-  // перерасход статей КС
-  const fundOver = fundRes.rows as any[];
-  if (fundOver.length > 0) {
-    const worst = fundOver[0];
-    insights.push({
-      kind: 'warning',
-      title: `Статья КС «${worst.name}» опережает план`,
-      text: `С начала года израсходовано ${money0(toNum(worst.spent_ytd))} при плане ${money0(toNum(worst.plan_ytd))}. ${
-        fundOver.length > 1 ? `Ещё под давлением: ${fundOver.slice(1).map((f) => `«${f.name}»`).join(', ')}.` : ''
-      }`,
-    });
-  }
 
   // незаполненные дни
   const filledCount = Number((filledRes.rows as any[])[0]?.c ?? 0);
@@ -301,30 +277,6 @@ export async function getAnalytics(ym: string): Promise<Analytics> {
       kind: 'advice',
       title: `${checkableDays - filledCount} дн. без отметки «заполнен»`,
       text: `Из ${checkableDays} дней месяца отмечено ${filledCount}. Если траты за пропущенные дни не внесены, картина месяца занижена.`,
-    });
-  }
-
-  // рекорды за 12 месяцев
-  if (monthsWithData.length >= 3) {
-    const max = monthsWithData.reduce((a, b) => (b.actual > a.actual ? b : a));
-    const min = monthsWithData.reduce((a, b) => (b.actual < a.actual ? b : a));
-    const avg = monthsWithData.reduce((s, x) => s + x.actual, 0) / monthsWithData.length;
-    insights.push({
-      kind: 'record',
-      title: `Обычный месяц — около ${money0(avg)}`,
-      text: `Самый дорогой из последних — ${max.label} (${money0(max.actual)}), самый лёгкий — ${min.label} (${money0(min.actual)}). Текущий ${
-        actualMonth > avg ? 'выше' : 'ниже'
-      } среднего на ${money0(Math.abs(actualMonth - avg))}.`,
-    });
-  }
-
-  // самая крупная трата месяца
-  if (topExpenses[0] && actualMonth > 0 && topExpenses[0].amount / actualMonth >= 0.15) {
-    const t = topExpenses[0];
-    insights.push({
-      kind: 'record',
-      title: `Крупнейшая трата — ${money0(t.amount)}`,
-      text: `${t.label}${t.sub ? ` (${t.sub})` : ''}, ${Number(t.date.slice(8, 10))} ${monthGen} — ${Math.round((t.amount / actualMonth) * 100)}% всего месяца.`,
     });
   }
 

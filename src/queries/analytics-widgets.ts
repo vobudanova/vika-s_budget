@@ -609,3 +609,83 @@ export async function getMomMonths(ym: string): Promise<MomMonth[]> {
   }
   return months.reverse(); // слева сверху самый ранний, справа снизу текущий
 }
+
+// ------------------------------------------------ накопительная за год
+
+export type YearCumulative = {
+  year: number;
+  spent: number; // фактические с начала года
+  received: number;
+  saved: number; // получено − потрачено
+  months: {
+    ym: string;
+    label: string;
+    spent: number;
+    received: number;
+    saved: number;
+    cumSpent: number;
+    cumReceived: number;
+    cumSaved: number;
+  }[];
+  groups: { name: string; total: number; share: number }[];
+};
+
+export async function getYearCumulative(year: number): Promise<YearCumulative> {
+  const from = `${year}-01-01`;
+  const to = `${year}-12-31`;
+  const [spentRes, incomeRes, groupsRes] = await Promise.all([
+    db.execute(sql`
+      SELECT to_char(date_trunc('month', date), 'YYYY-MM') AS ym, sum(amount) AS s
+      FROM v_expenses_actual WHERE date BETWEEN ${from} AND ${to} GROUP BY 1
+    `),
+    db.execute(sql`
+      SELECT to_char(date_trunc('month', date), 'YYYY-MM') AS ym, sum(amount) AS s
+      FROM transactions WHERE kind = 'income' AND date BETWEEN ${from} AND ${to} GROUP BY 1
+    `),
+    db.execute(sql`
+      SELECT cg.name, sum(v.amount) AS s
+      FROM v_expenses_actual v JOIN category_groups cg ON cg.id = v.group_id
+      WHERE v.date BETWEEN ${from} AND ${to}
+      GROUP BY 1 ORDER BY 2 DESC
+    `),
+  ]);
+  const spentBy = new Map((spentRes.rows as any[]).map((r) => [String(r.ym), toNum(r.s)]));
+  const incomeBy = new Map((incomeRes.rows as any[]).map((r) => [String(r.ym), toNum(r.s)]));
+
+  const currentYm = ymOf(todayISO());
+  const lastMonth =
+    String(year) === currentYm.slice(0, 4) ? Number(currentYm.slice(5, 7)) : 12;
+
+  const months: YearCumulative['months'] = [];
+  let cumSpent = 0;
+  let cumReceived = 0;
+  for (let m = 1; m <= lastMonth; m++) {
+    const ym = `${year}-${String(m).padStart(2, '0')}`;
+    const spent = round2(spentBy.get(ym) ?? 0);
+    const received = round2(incomeBy.get(ym) ?? 0);
+    cumSpent = round2(cumSpent + spent);
+    cumReceived = round2(cumReceived + received);
+    months.push({
+      ym,
+      label: RU_MONTHS[m - 1].slice(0, 3),
+      spent,
+      received,
+      saved: round2(received - spent),
+      cumSpent,
+      cumReceived,
+      cumSaved: round2(cumReceived - cumSpent),
+    });
+  }
+
+  const spent = cumSpent;
+  const received = cumReceived;
+  const groupsTotal = (groupsRes.rows as any[]).map((r) => ({ name: String(r.name), total: round2(toNum(r.s)) }));
+  return {
+    year,
+    spent,
+    received,
+    saved: round2(received - spent),
+    months,
+    groups: groupsTotal.map((g) => ({ ...g, share: spent > 0 ? g.total / spent : 0 })),
+  };
+}
