@@ -26,6 +26,7 @@ import {
   IconPigMoney,
   IconTrendingUp,
   IconWallet,
+  IconArrowsLeftRight,
   IconSettings,
 } from '@tabler/icons-react';
 import { PullToRefresh } from './PullToRefresh';
@@ -69,6 +70,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       section: 'Деньги',
       items: [
         { href: '/balance', prefix: '/balance', label: 'Баланс', icon: <IconWallet size={18} stroke={1.6} /> },
+        { href: '/accounts', prefix: '/accounts', label: 'Движение по счетам', icon: <IconArrowsLeftRight size={18} stroke={1.6} /> },
         { href: '/income', prefix: '/income', label: 'Доходы', icon: <IconTrendingUp size={18} stroke={1.6} /> },
       ],
     },

@@ -76,7 +76,6 @@ export function SheetTable({
   minWidth = 900,
   firstColWidth = 230,
   onCell,
-  focusCol,
 }: {
   columns: SheetColumn[];
   sections: SheetSection[];
@@ -93,8 +92,6 @@ export function SheetTable({
   minWidth?: number;
   firstColWidth?: number;
   onCell?: (q: CellClick) => void;
-  /** колонка, которую при открытии прокрутить в центр (например, сегодняшний день) */
-  focusCol?: number;
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(sections.filter((s) => COLLAPSIBLE.has(s.key)).map((s) => [s.key, true])),
@@ -121,20 +118,8 @@ export function SheetTable({
     return () => window.removeEventListener('resize', measure);
   }, []);
 
-  // Текущий месяц открывается с сегодняшним днём по центру видимой области
+  // таблица открывается с начала — автопрокрутку к текущей колонке убрали
   const viewportRef = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    if (!focusCol) return;
-    const vp = viewportRef.current;
-    const th = vp?.querySelector<HTMLElement>(`th[data-col="${focusCol}"]`);
-    if (!vp || !th) return;
-    const stickyW = vp.querySelector('th')?.offsetWidth ?? firstColWidth;
-    const target =
-      th.offsetLeft + th.offsetWidth / 2 - stickyW - (vp.clientWidth - stickyW) / 2;
-    vp.scrollLeft = Math.max(0, target);
-    setScrolledX(vp.scrollLeft > 8);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusCol]);
 
   const firstCol: React.CSSProperties = {
     position: 'sticky',

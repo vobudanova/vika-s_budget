@@ -20,7 +20,7 @@ import { CardLabel } from '@/components/CardLabel';
 import { FundMovementsList } from '@/components/fund/FundActions';
 import { FundSheet } from '@/components/fund/FundSheet';
 import { getFundOverview } from '@/queries/fund';
-import { getReference } from '@/queries/core';
+import { getReference, getSetting } from '@/queries/core';
 import { todayISO } from '@/lib/dates';
 import { fmtMoney } from '@/lib/money';
 import { WipeButton } from '@/components/WipeButton';
@@ -31,7 +31,11 @@ export const dynamic = 'force-dynamic';
 
 export default async function FundPage() {
   const year = todayISO().slice(0, 4);
-  const [fund, ref] = await Promise.all([getFundOverview(year), getReference()]);
+  const [fund, ref, closedMonths] = await Promise.all([
+    getFundOverview(year),
+    getReference(),
+    getSetting<string[]>('fund_closed_months', []),
+  ]);
   const groups = [...new Set(fund.categories.map((c) => c.groupName))];
   const moneyAccounts = ref.accounts
     .filter((a) => ['checking', 'cash'].includes(a.type))
@@ -65,7 +69,7 @@ export default async function FundPage() {
         </Alert>
       )}
 
-      <FundSheet categories={fund.categories} year={year} />
+      <FundSheet categories={fund.categories} year={year} closedMonths={closedMonths} />
 
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
         <Card>

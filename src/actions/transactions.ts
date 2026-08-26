@@ -356,6 +356,41 @@ export async function listIncomePage(
   };
 }
 
+// ------------------------------------------------------- движение по счетам
+
+export type AccountMovesFilter = 'all' | 'compensation' | 'transfer' | 'income' | 'expense' | 'saving';
+
+const MOVES_KINDS: Record<Exclude<AccountMovesFilter, 'all'>, string[]> = {
+  compensation: ['reimbursement', 'coverage_in'],
+  transfer: ['transfer'],
+  income: ['income'],
+  expense: ['expense', 'purchase'],
+  saving: ['saving'],
+};
+
+/** Все операции, где счёт списывается или пополняется, включая скрытые из
+    таблиц; опциональный фильтр по виду (компенсации и т.д.). */
+export async function listAccountMovesPage(
+  accountId: number,
+  filter: AccountMovesFilter,
+  cursor: IncomeCursor | null,
+): Promise<{ items: TxRow[]; nextCursor: IncomeCursor | null }> {
+  const limit = 50;
+  const conds = [sql`(t.account_id = ${accountId} OR t.counter_account_id = ${accountId})`];
+  if (filter !== 'all') {
+    const kinds = MOVES_KINDS[filter].map((k) => sql`${k}`);
+    conds.push(sql`t.kind IN (${sql.join(kinds, sql`, `)})`);
+  }
+  if (cursor) conds.push(sql`(t.date, t.id) < (${cursor.date}::date, ${cursor.id})`);
+  const rows = await getTransactions(sql`${sql.join(conds, sql` AND `)}`, limit + 1);
+  const items = rows.slice(0, limit);
+  const last = items[items.length - 1];
+  return {
+    items,
+    nextCursor: rows.length > limit && last ? { date: last.date, id: last.id } : null,
+  };
+}
+
 // ------------------------------------------------------------------- поиск
 
 /** Поиск по операциям: каждый токен ищется в заметках, названиях категорий,

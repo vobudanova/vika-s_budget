@@ -97,7 +97,6 @@ export function MonthView({
             },
           ]}
           onCell={onCell}
-          focusCol={ym === today.slice(0, 7) ? Number(today.slice(8, 10)) : undefined}
         />
       ) : (
         <Card>

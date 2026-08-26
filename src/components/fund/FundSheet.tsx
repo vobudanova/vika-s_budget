@@ -1,8 +1,9 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState } from 'react';
-import { Card, ScrollArea, Table, Text, em } from '@mantine/core';
+import { useLayoutEffect, useRef, useState, useTransition } from 'react';
+import { Card, ScrollArea, Table, Text, Tooltip, em } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
+import { toggleFundMonthClosed } from '@/actions/misc';
 import type { FundCategoryStatus } from '@/queries/fund';
 import { CellBreakdownDrawer, type CellQuery } from '@/components/sheet/CellBreakdown';
 import { RU_MONTHS } from '@/lib/dates';
@@ -51,8 +52,21 @@ function aggregate(name: string, key: string, cats: FundCategoryStatus[]): Agg {
 }
 
 /** Лист КС «как в Excel»: статьи по группам × месяцы (отложено/израсходовано). */
-export function FundSheet({ categories, year }: { categories: FundCategoryStatus[]; year: string }) {
+export function FundSheet({
+  categories,
+  year,
+  closedMonths,
+}: {
+  categories: FundCategoryStatus[];
+  year: string;
+  closedMonths: string[]; // ym, отмеченные «месяц сведён»
+}) {
   const [cell, setCell] = useState<{ q: CellQuery; title: string } | null>(null);
+  const [, startTransition] = useTransition();
+  const toggleClosed = (m: number) =>
+    startTransition(() =>
+      toggleFundMonthClosed(`${year}-${String(m).padStart(2, '0')}`).then(() => {}),
+    );
   const isMobile = useMediaQuery(`(max-width: ${em(768)})`, false);
   const [scrolledX, setScrolledX] = useState(false);
   const shrink = isMobile && scrolledX;
@@ -72,20 +86,8 @@ export function FundSheet({ categories, year }: { categories: FundCategoryStatus
 
   const firstColWidth = 190;
 
-  // текущий год открывается с текущим месяцем по центру видимой зоны
+  // таблица открывается с января — автопрокрутку к текущему месяцу убрали
   const viewportRef = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const now = new Date();
-    if (String(now.getFullYear()) !== year) return;
-    const vp = viewportRef.current;
-    const th = vp?.querySelector<HTMLElement>(`th[data-col="${now.getMonth() + 1}"]`);
-    if (!vp || !th) return;
-    const stickyW = vp.querySelector('th')?.offsetWidth ?? firstColWidth;
-    const target = th.offsetLeft + th.offsetWidth / 2 - stickyW - (vp.clientWidth - stickyW) / 2;
-    vp.scrollLeft = Math.max(0, target);
-    setScrolledX(vp.scrollLeft > 8);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [year]);
 
   const groups = [...new Set(categories.map((c) => c.groupName))];
 
@@ -142,11 +144,21 @@ export function FundSheet({ categories, year }: { categories: FundCategoryStatus
                 <HeadTh rowSpan={2} w={84}>
                   план/мес
                 </HeadTh>
-                {RU_MONTHS.map((mName, i) => (
-                  <HeadTh key={mName} colSpan={2} accent dataCol={i + 1}>
-                    {mName.slice(0, 3)}
-                  </HeadTh>
-                ))}
+                {RU_MONTHS.map((mName, i) => {
+                  const closed = closedMonths.includes(`${year}-${String(i + 1).padStart(2, '0')}`);
+                  return (
+                    <HeadTh
+                      key={mName}
+                      colSpan={2}
+                      accent
+                      dataCol={i + 1}
+                      closed={closed}
+                      onClick={() => toggleClosed(i + 1)}
+                    >
+                      {mName.slice(0, 3)}
+                    </HeadTh>
+                  );
+                })}
               </Table.Tr>
               <Table.Tr>
                 {RU_MONTHS.map((mName) => [
@@ -226,6 +238,8 @@ function HeadTh({
   accent,
   sub,
   dataCol,
+  closed,
+  onClick,
 }: {
   children?: React.ReactNode;
   w?: number;
@@ -234,25 +248,38 @@ function HeadTh({
   accent?: boolean;
   sub?: boolean;
   dataCol?: number;
+  closed?: boolean;
+  onClick?: () => void;
 }) {
-  return (
+  const th = (
     <Table.Th
       ta="center"
       rowSpan={rowSpan}
       colSpan={colSpan}
       data-col={dataCol}
+      onClick={onClick}
       style={{
         minWidth: w,
         border: 'none',
-        background: bottomLineBg(1),
+        background: bottomLineBg(1, closed ? 'var(--mantine-color-ink-1)' : undefined),
         boxShadow: `inset -1px 0 0 0 ${BORDER}`,
         whiteSpace: 'normal',
+        ...(onClick ? { cursor: 'pointer' } : null),
       }}
     >
       <Text fz={accent ? 22 : 12} fw={600} c={accent ? 'ink.6' : 'dimmed'} lh={1.15} tt={sub ? undefined : undefined}>
         {children}
       </Text>
     </Table.Th>
+  );
+  if (!onClick) return th;
+  return (
+    <Tooltip
+      label={closed ? 'Месяц сведён — нажмите, чтобы снять отметку' : 'Нажмите, когда месяц КС сведён'}
+      openDelay={400}
+    >
+      {th}
+    </Tooltip>
   );
 }
 

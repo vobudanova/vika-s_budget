@@ -67,6 +67,19 @@ type FundCat = {
 type Source = { id: number; name: string; type: string; expectedMonthly: number | null };
 type Account = { id: number; name: string; type: string; isActive: boolean; includeInTotal: boolean };
 
+/** Компактная подпись срока действия («с 03.2025 по 06.2026») и признак
+    «не действует в текущем году» — состав категорий и статей меняется по годам. */
+const periodLabel = (from: string, to: string | null) => {
+  const mmYYYY = (d: string) => `${d.slice(5, 7)}.${d.slice(0, 4)}`;
+  return [from > '2001-01-01' ? `с ${mmYYYY(from)}` : null, to ? `по ${mmYYYY(to)}` : null]
+    .filter(Boolean)
+    .join(' ');
+};
+const outsideCurrentYear = (from: string, to: string | null) => {
+  const y = String(new Date().getFullYear());
+  return from > `${y}-12-31` || (!!to && to < `${y}-01-01`);
+};
+
 const notify = (res: { ok: boolean; error?: string }, okMsg: string) =>
   notifications.show(
     res.ok ? { message: okMsg } : { color: 'red', message: res.error ?? 'Ошибка' },
@@ -227,12 +240,17 @@ function CategoriesPanel({ groups, categories }: { groups: Grp[]; categories: Ca
                   style={{
                     border: `1px solid ${c.pendingDelete ? 'var(--mantine-color-red-4)' : 'var(--ink-line)'}`,
                     borderRadius: 99,
-                    opacity: c.activeTo ? 0.5 : 1,
+                    opacity: outsideCurrentYear(c.activeFrom, c.activeTo) ? 0.5 : 1,
                   }}
                 >
                   <Text fz="xs" td={c.pendingDelete ? 'line-through' : undefined} c={c.pendingDelete ? 'red.7' : undefined}>
                     {c.name}
                   </Text>
+                  {periodLabel(c.activeFrom, c.activeTo) && (
+                    <Text fz={10} c="dimmed" className="money">
+                      {periodLabel(c.activeFrom, c.activeTo)}
+                    </Text>
+                  )}
                   <Tooltip label="Изменить: название и период действия">
                     <ActionIcon size="xs" variant="subtle" color="gray" onClick={() => setRenaming(c)}>
                       <IconPencil size={12} />
@@ -415,16 +433,17 @@ function FundRow({ c, onEdit }: { c: FundCat; onEdit: () => void }) {
           notify(await deleteFundCategory(c.id), 'Статья удалена');
         }),
     });
-  const closed = !!c.activeTo;
+  const outside = outsideCurrentYear(c.activeFrom, c.activeTo);
+  const period = periodLabel(c.activeFrom, c.activeTo);
   return (
     <Table.Tr>
       <Table.Td>
-        <Text fz="sm" c={closed ? 'dimmed' : undefined}>
+        <Text fz="sm" c={outside ? 'dimmed' : undefined}>
           {c.name}
         </Text>
         <Text fz="xs" c="dimmed">
           {c.groupName}
-          {closed ? ` · по ${c.activeTo}` : ''}
+          {period ? ` · ${period}` : ''}
         </Text>
       </Table.Td>
       <Table.Td w={220} ta="right">
