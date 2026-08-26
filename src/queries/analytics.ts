@@ -232,22 +232,6 @@ export async function getAnalytics(ym: string): Promise<Analytics> {
   }
 
   // концентрация: топ-3 дня
-  if (actualMonth > 0) {
-    const top3 = [...daily].sort((a, b) => b.amount - a.amount).slice(0, 3);
-    const top3sum = top3.reduce((s, d) => s + d.amount, 0);
-    const share = (top3sum / actualMonth) * 100;
-    if (share >= 45 && top3[0].amount > 0) {
-      insights.push({
-        kind: 'finding',
-        title: `Три дня сделали ${Math.round(share)}% месяца`,
-        text: `${top3
-          .filter((d) => d.amount > 0)
-          .map((d) => `${d.day} ${monthGen} — ${money0(d.amount)}`)
-          .join(', ')}. Остальные дни заметно спокойнее.`,
-      });
-    }
-  }
-
   // категория-рекордсмен и её отклонение от среднего
   const lead = groups[0];
   if (lead && lead.share >= 0.25 && lead.avg > 0) {
@@ -259,54 +243,6 @@ export async function getAnalytics(ym: string): Promise<Analytics> {
         Math.abs(diff) >= 15
           ? `${money0(lead.current)} за месяц — ${pct(diff)} к своему обычному уровню (${money0(lead.avg)}/мес).`
           : `${money0(lead.current)} за месяц — примерно на своём обычном уровне (${money0(lead.avg)}/мес).`,
-    });
-  }
-
-  // быстрорастущая и быстро упавшая группы
-  for (const g of groups) {
-    if (g.prev >= 2000 && g.current >= g.prev * 1.6 && g !== lead) {
-      insights.push({
-        kind: 'finding',
-        title: `«${g.name}» ×${(g.current / g.prev).toFixed(1)} к прошлому месяцу`,
-        text: `${money0(g.prev)} → ${money0(g.current)}. Стоит глянуть раскладку на странице месяца.`,
-      });
-      break;
-    }
-  }
-  for (const g of groups) {
-    if (g.prev >= 5000 && g.current <= g.prev * 0.45) {
-      insights.push({
-        kind: 'finding',
-        title: `«${g.name}» почти замерла`,
-        text: `${money0(g.prev)} в прошлом месяце → ${money0(g.current)} сейчас (−${Math.round((1 - g.current / g.prev) * 100)}%).`,
-      });
-      break;
-    }
-  }
-
-  // кафе против продуктов
-  const cafe = toNum(extras.cafe);
-  const grocery = toNum(extras.grocery);
-  if (cafe + grocery >= 5000 && cafe > 0) {
-    const share = Math.round((cafe / (cafe + grocery)) * 100);
-    insights.push({
-      kind: share >= 45 ? 'advice' : 'finding',
-      title: `${share}% еды — кафе и доставка`,
-      text:
-        share >= 45
-          ? `Кафе ${money0(cafe)} против продуктов ${money0(grocery)}. Если сместить хотя бы четверть в «Продукты», месяц станет легче примерно на ${money0(cafe * 0.15)}.`
-          : `Кафе ${money0(cafe)}, продукты ${money0(grocery)} — здоровое соотношение.`,
-    });
-  }
-
-  // покупки и амортизация
-  const purchases = toNum(extras.purchases);
-  const amort = toNum(extras.amort);
-  if (purchases >= 3000) {
-    insights.push({
-      kind: 'finding',
-      title: `Покупок на ${money0(purchases)}`,
-      text: `В начисленном методе месяц несёт только ${money0(amort)} амортизации — остальное растянется на срок службы вещей. Фактический и начисленный итоги поэтому расходятся.`,
     });
   }
 

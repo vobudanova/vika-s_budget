@@ -1,6 +1,6 @@
 'use client';
 
-import { AreaChart, BarChart } from '@mantine/charts';
+import { AreaChart } from '@mantine/charts';
 import { Box, Card, Group, Progress, SimpleGrid, Stack, Text, ThemeIcon } from '@mantine/core';
 import {
   IconAlertTriangle,
@@ -13,7 +13,7 @@ import {
 import type { Analytics, Insight } from '@/queries/analytics';
 import { CardLabel } from '@/components/CardLabel';
 import { Money } from '@/components/Money';
-import { fmtMoney, fmtMoneyShort, fmtNumber } from '@/lib/money';
+import { fmtMoney, fmtMoneyShort } from '@/lib/money';
 
 const INSIGHT_META: Record<Insight['kind'], { icon: React.ReactNode; color: string; label: string }> = {
   finding: { icon: <IconBulb size={16} stroke={1.8} />, color: 'ink', label: 'наблюдение' },
@@ -82,7 +82,6 @@ export function TrendCard({
 }
 
 export function AnalyticsView({ a }: { a: Analytics }) {
-  const dailyData = a.daily.map((d) => ({ day: String(d.day), Расход: Math.round(d.amount) }));
 
   return (
     <Stack gap="md">
@@ -166,34 +165,6 @@ export function AnalyticsView({ a }: { a: Analytics }) {
         })}
       </SimpleGrid>
 
-      {/* — расходы по дням — */}
-      <Card>
-        <Stack gap="sm">
-          <CardLabel>Расходы по дням</CardLabel>
-          {a.actualMonth > 0 ? (
-            <BarChart
-              h={200}
-              data={dailyData}
-              dataKey="day"
-              series={[{ name: 'Расход', color: 'ink.5' }]}
-              withYAxis={false}
-              gridAxis="none"
-              barProps={{ radius: 3 }}
-              referenceLines={
-                a.avgPerDay > 0
-                  ? [{ y: a.avgPerDay, color: 'gray.5', label: `среднее ${fmtNumber(a.avgPerDay, 0)}` }]
-                  : []
-              }
-              valueFormatter={(v) => fmtMoney(Math.round(v))}
-            />
-          ) : (
-            <Text fz="sm" c="dimmed">
-              В этом месяце трат пока нет.
-            </Text>
-          )}
-        </Stack>
-      </Card>
-
       {/* — структура по группам — */}
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
         <Card>
@@ -229,43 +200,6 @@ export function AnalyticsView({ a }: { a: Analytics }) {
           </Stack>
         </Card>
 
-        {/* — крупнейшие траты — */}
-        <Card>
-          <Stack gap="sm">
-            <CardLabel>Крупнейшие траты месяца</CardLabel>
-            {a.topExpenses.length === 0 && (
-              <Text fz="sm" c="dimmed">
-                Пока пусто.
-              </Text>
-            )}
-            <Stack gap={0}>
-              {a.topExpenses.map((t, i) => (
-                <Group
-                  key={i}
-                  justify="space-between"
-                  wrap="nowrap"
-                  py={7}
-                  gap="md"
-                  style={{
-                    borderBottom: i === a.topExpenses.length - 1 ? 'none' : '1px solid var(--ink-line)',
-                  }}
-                >
-                  <Stack gap={0} style={{ minWidth: 0 }}>
-                    <Text fz="sm" fw={500} truncate>
-                      {`${t.date.slice(8, 10)}.${t.date.slice(5, 7)} · ${t.label}`}
-                    </Text>
-                    {t.sub && (
-                      <Text fz="xs" c="dimmed" truncate>
-                        {t.sub}
-                      </Text>
-                    )}
-                  </Stack>
-                  <Money value={Math.round(t.amount)} fz="sm" fw={500} style={{ flexShrink: 0 }} />
-                </Group>
-              ))}
-            </Stack>
-          </Stack>
-        </Card>
       </SimpleGrid>
     </Stack>
   );

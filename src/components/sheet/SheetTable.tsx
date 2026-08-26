@@ -338,24 +338,35 @@ function Section({
             )}
           </FirstCellBox>
         </Table.Td>
-        <NumCell
-          v={s.total}
-          strong
-          ta="center"
-          py={ROW_PY}
-          pt={ROW_PY + SECTION_GAP}
-          onClick={onCell ? () => onCell({ section: s.key, row: null, col: 'total', rowTitle: s.title }) : undefined}
-        />
-        {columns.map((c) => (
-          <NumCell
-            key={c.key}
-            v={s.dayTotals[c.key]}
-            strong
-            py={ROW_PY}
-            pt={ROW_PY + SECTION_GAP}
-            onClick={onCell ? () => onCell({ section: s.key, row: null, col: c.key, rowTitle: s.title }) : undefined}
-          />
-        ))}
+        {s.hideTotals ? (
+          <>
+            <Table.Td style={{ paddingTop: ROW_PY + SECTION_GAP, paddingBottom: ROW_PY }} />
+            {columns.map((c) => (
+              <Table.Td key={c.key} style={{ paddingTop: ROW_PY + SECTION_GAP, paddingBottom: ROW_PY }} />
+            ))}
+          </>
+        ) : (
+          <>
+            <NumCell
+              v={s.total}
+              strong
+              ta="center"
+              py={ROW_PY}
+              pt={ROW_PY + SECTION_GAP}
+              onClick={onCell ? () => onCell({ section: s.key, row: null, col: 'total', rowTitle: s.title }) : undefined}
+            />
+            {columns.map((c) => (
+              <NumCell
+                key={c.key}
+                v={s.dayTotals[c.key]}
+                strong
+                py={ROW_PY}
+                pt={ROW_PY + SECTION_GAP}
+                onClick={onCell ? () => onCell({ section: s.key, row: null, col: c.key, rowTitle: s.title }) : undefined}
+              />
+            ))}
+          </>
+        )}
       </Table.Tr>
       {!collapsed &&
         s.rows.flatMap((r) => [

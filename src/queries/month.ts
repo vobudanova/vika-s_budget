@@ -20,6 +20,8 @@ export type SheetSection = {
   rows: SheetRow[];
   dayTotals: number[];
   total: number;
+  /** не показывать суммы в строке заголовка секции (микс несравнимых сумм) */
+  hideTotals?: boolean;
 };
 export type MonthSheet = {
   daysCount: number;

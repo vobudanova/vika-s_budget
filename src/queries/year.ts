@@ -178,6 +178,7 @@ export async function getYearSheet(year: string): Promise<YearSheet> {
     key: 'transfers',
     title: 'Переводы',
     tone: 'transfers',
+    hideTotals: true,
     ...buildRows(
       [
         { key: 'savings_cap', name: 'На КАП' },

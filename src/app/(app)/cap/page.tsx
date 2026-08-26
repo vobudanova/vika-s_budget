@@ -17,7 +17,7 @@ import { CardLabel } from '@/components/CardLabel';
 import { CapGoalRow } from '@/components/cap/CapGoalRow';
 import { AllocationsValue } from '@/components/cap/CapReconcile';
 import { CapMonthlyTable } from '@/components/cap/CapMonthlyTable';
-import { SpentLeftover } from '@/components/cap/SpentLeftover';
+import { SpentList } from '@/components/cap/SpentList';
 import { CapPaymentButton } from '@/components/cap/CapPaymentButton';
 import { sql } from 'drizzle-orm';
 import { db } from '@/db';
@@ -39,7 +39,7 @@ export default async function CapPage() {
   const activeGoals = cap.goals.filter((g) => g.status !== 'spent');
   const spentGoals = cap.goals
     .filter((g) => g.status === 'spent')
-    .sort((a, b) => (a.spentAt ?? '').localeCompare(b.spentAt ?? ''));
+    .sort((a, b) => (b.spentAt ?? '').localeCompare(a.spentAt ?? ''));
   const openGoalsForTransfer = cap.goals
     .filter((g) => g.status !== 'spent' && g.remaining > 0)
     .map((g) => ({ id: g.id, name: g.name, remaining: g.remaining }));
@@ -224,26 +224,18 @@ export default async function CapPage() {
       {spentGoals.length > 0 && (
         <Card>
           <Stack gap="xs">
-            <CardLabel>Завершено</CardLabel>
-            {spentGoals.map((g) => (
-              <Group key={g.id} justify="space-between" wrap="wrap" gap="xs">
-                <Text fz="sm" c="dimmed">
-                  {g.name}
-                </Text>
-                <Group gap="md" wrap="nowrap">
-                  {g.contributed > 0.005 && (
-                    <SpentLeftover
-                      goal={g}
-                      otherGoals={openGoalsForTransfer.filter((o) => o.id !== g.id)}
-                      returnAccounts={moneyAccounts}
-                    />
-                  )}
-                  <Text fz="sm" c="dimmed" className="money">
-                    {fmtMoneyExact(g.target)} · {ymTitle(ymOf(g.spentAt ?? today))}
-                  </Text>
-                </Group>
-              </Group>
-            ))}
+            <Group justify="space-between">
+              <CardLabel>Завершено</CardLabel>
+              <Text fz="sm" c="dimmed" className="money">
+                {fmtMoneyExact(spentGoals.reduce((s, g) => s + g.target, 0))}
+              </Text>
+            </Group>
+            <SpentList
+              goals={spentGoals}
+              today={today}
+              openGoalsForTransfer={openGoalsForTransfer}
+              returnAccounts={moneyAccounts}
+            />
           </Stack>
         </Card>
       )}
