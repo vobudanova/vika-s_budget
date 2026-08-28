@@ -329,6 +329,7 @@ export function SpendDrawer({
                   w={130}
                   hideControls
                   decimalScale={2}
+                  decimalSeparator=","
                 />
               </Group>
             ))}

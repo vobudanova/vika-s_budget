@@ -321,7 +321,7 @@ export async function listEditRefs() {
       ORDER BY g.sort_order, c.sort_order, c.name
     `),
     db.execute(sql`
-      SELECT id, name FROM accounts WHERE is_active ORDER BY sort_order, name
+      SELECT id, name, type FROM accounts WHERE is_active ORDER BY sort_order, name
     `),
   ]);
   return {
@@ -330,7 +330,11 @@ export async function listEditRefs() {
       name: c.name as string,
       groupName: c.group_name as string,
     })),
-    accounts: (accs.rows as any[]).map((a) => ({ id: Number(a.id), name: a.name as string })),
+    accounts: (accs.rows as any[]).map((a) => ({
+      id: Number(a.id),
+      name: a.name as string,
+      type: a.type as string,
+    })),
   };
 }
 

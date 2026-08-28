@@ -172,6 +172,7 @@ function EditRow({
           onChange={setValue}
           hideControls
           decimalScale={2}
+          decimalSeparator=","
           thousandSeparator=" "
           size="xs"
           className="money"

@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { ActionIcon, Button, Group, NumberInput, Stack, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, Button, Group, Stack, Text, TextInput, Tooltip } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { IconPencil } from '@tabler/icons-react';
 import { FormDrawer } from '@/components/FormDrawer';
 import { saveSnapshot } from '@/actions/misc';
 import { todayLocalISO } from '@/components/assets/today';
-import { fmtMoney } from '@/lib/money';
+import { fmtMoney, fmtMoneyExact, parseAmountExpr } from '@/lib/money';
 
 /** Ввод фактической суммы на счёте: снапшот на сегодня. Операции задним
     числом баланс больше не двигают — влияют только будущие. */
@@ -22,22 +22,28 @@ export function FactButton({
   current: number;
 }) {
   const [opened, setOpened] = useState(false);
-  const [value, setValue] = useState<number | string>('');
+  const [value, setValue] = useState('');
   const [date, setDate] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const open = () => {
-    setValue(Math.round(current * 100) / 100);
+    setValue(String(Math.round(current * 100) / 100).replace('.', ','));
     setDate(todayLocalISO());
     setOpened(true);
   };
+
+  // раньше здесь был NumberInput с точкой-разделителем: запятая копеек молча
+  // выбрасывалась и «138579,22» превращалось в 13 857 922
+  const negative = value.trim().startsWith('-');
+  const parsedAbs = parseAmountExpr(value.replace(/^-/, ''));
+  const parsed = parsedAbs == null ? null : negative ? -parsedAbs : parsedAbs;
 
   const save = () =>
     startTransition(async () => {
       const res = await saveSnapshot({
         accountId,
         onDate: date ?? todayLocalISO(),
-        balance: String(value || 0),
+        balance: value,
       });
       if (!res.ok) {
         notifications.show({ color: 'red', message: res.error });
@@ -56,16 +62,20 @@ export function FactButton({
       </Tooltip>
       <FormDrawer opened={opened} onClose={() => setOpened(false)} title={name} desktopSize="sm">
         <Stack gap="sm">
-          <NumberInput
+          <TextInput
             label="Фактическая сумма на счёте"
             value={value}
-            onChange={setValue}
-            hideControls
-            decimalScale={2}
-            thousandSeparator=" "
+            onChange={(e) => setValue(e.currentTarget.value)}
             className="money"
             autoFocus
+            error={value.trim() !== '' && parsed == null ? 'Не разбирается как сумма' : undefined}
+            description="Копейки — через запятую; можно выражением: 250000-1500"
           />
+          {parsed != null && (
+            <Text fz="sm" c="dimmed" className="money">
+              Будет зафиксировано: {fmtMoneyExact(parsed)}
+            </Text>
+          )}
           <DatePickerInput
             label="На дату"
             value={date}
@@ -81,7 +91,7 @@ export function FactButton({
             <Button variant="default" onClick={() => setOpened(false)}>
               Отмена
             </Button>
-            <Button onClick={save} loading={pending}>
+            <Button onClick={save} loading={pending} disabled={parsed == null}>
               Зафиксировать
             </Button>
           </Group>

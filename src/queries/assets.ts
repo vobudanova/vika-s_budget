@@ -11,6 +11,8 @@ export type AssetOverview = {
   initialPrice: number;
   assetCategoryId: number;
   effectivePrice: number;
+  /** сумма корректировок (перепродажа — отрицательная) */
+  adjustmentsTotal: number;
   termMonths: number;
   disposedAt: string | null;
   monthlyAmount: number;
@@ -34,6 +36,7 @@ export async function getAssetsOverview(): Promise<AssetOverview[]> {
       a.id, a.name, a.purchase_date, a.initial_price, a.asset_category_id, a.term_months, a.disposed_at, a.note,
       ac.name AS category_name,
       a.initial_price + COALESCE(adj.s, 0) AS effective_price,
+      COALESCE(adj.s, 0) AS adjustments_total,
       COALESCE(st.prev_years, 0) AS prev_years,
       COALESCE(st.current_year, 0) AS current_year,
       COALESCE(st.future, 0) AS future,
@@ -73,6 +76,7 @@ export async function getAssetsOverview(): Promise<AssetOverview[]> {
       initialPrice: toNum(r.initial_price),
       assetCategoryId: Number(r.asset_category_id),
       effectivePrice,
+      adjustmentsTotal: toNum(r.adjustments_total),
       termMonths: r.term_months,
       disposedAt: r.disposed_at,
       monthlyAmount: r.term_months ? Math.round((effectivePrice / r.term_months) * 100) / 100 : 0,

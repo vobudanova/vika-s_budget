@@ -5,7 +5,7 @@ import { isValidYM, todayISO, ymOf, ymTitle } from '@/lib/dates';
 import { getAnalytics } from '@/queries/analytics';
 import { AnalyticsView } from '@/components/analytics/AnalyticsView';
 import { AnalyticsNav } from '@/components/analytics/AnalyticsNav';
-import { AnomaliesWidget, CompareWidget, HygieneWidget, WidgetSkeleton } from '@/components/analytics/widgets';
+import { CompareWidget, WidgetSkeleton } from '@/components/analytics/widgets';
 import { MonthSwitcher } from '@/components/month/MonthSwitcher';
 
 export const dynamic = 'force-dynamic';
@@ -32,15 +32,9 @@ export default async function AnalyticsMonthPage({ params }: { params: Promise<{
       </Group>
 
       <AnalyticsView a={a} />
-      <Suspense fallback={<WidgetSkeleton lines={6} />}>
-        <AnomaliesWidget ym={ym} />
-      </Suspense>
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
         <Suspense fallback={<WidgetSkeleton lines={6} />}>
           <CompareWidget ym={ym} />
-        </Suspense>
-        <Suspense fallback={<WidgetSkeleton lines={6} />}>
-          <HygieneWidget ym={ym} />
         </Suspense>
       </SimpleGrid>
     </Stack>

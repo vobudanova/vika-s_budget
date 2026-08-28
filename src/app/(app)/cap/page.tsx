@@ -15,7 +15,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { Money } from '@/components/Money';
 import { CardLabel } from '@/components/CardLabel';
 import { CapGoalRow } from '@/components/cap/CapGoalRow';
-import { AllocationsValue } from '@/components/cap/CapReconcile';
+import { AllocationsCell } from '@/components/cap/CapReconcile';
 import { CapMonthlyTable } from '@/components/cap/CapMonthlyTable';
 import { SpentList } from '@/components/cap/SpentList';
 import { CapPaymentButton } from '@/components/cap/CapPaymentButton';
@@ -141,7 +141,7 @@ export default async function CapPage() {
                 <TableTr>
                   <TableTd px={0}>Размещения фонда (доллары, вклады…)</TableTd>
                   <TableTd px={0}>
-                    <AllocationsValue value={cap.allocationsNet} />
+                    <AllocationsCell value={cap.allocationsNet} moves={cap.allocationMoves} />
                   </TableTd>
                 </TableTr>
                 <TableTr>

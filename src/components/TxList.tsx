@@ -141,7 +141,7 @@ function TxLine({
 
 type EditRefs = {
   categories: { id: number; name: string; groupName: string }[];
-  accounts: { id: number; name: string }[];
+  accounts: { id: number; name: string; type: string }[];
 };
 
 function EditModal({ t, onClose }: { t: TxRow | null; onClose: () => void }) {
@@ -152,6 +152,7 @@ function EditModal({ t, onClose }: { t: TxRow | null; onClose: () => void }) {
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [hidden, setHidden] = useState(false);
+  const [allocation, setAllocation] = useState(false);
   const [refs, setRefs] = useState<EditRefs | null>(null);
 
   // Синхронизация при открытии; выражение показывается как введено («300+500-200»)
@@ -163,7 +164,13 @@ function EditModal({ t, onClose }: { t: TxRow | null; onClose: () => void }) {
     setCategoryId(t.categoryId ? String(t.categoryId) : null);
     setAccountId(t.accountId ? String(t.accountId) : null);
     setHidden(t.hidden);
+    setAllocation(t.fundAllocation != null);
   }, [t]);
+
+  // «размещение» доступно переводам/сбережениям с фондового счёта-источника
+  const fromType = refs?.accounts.find((a) => String(a.id) === accountId)?.type;
+  const fundKind = fromType === 'savings_cap' ? 'cap' : fromType === 'savings_ks' ? 'ks' : null;
+  const allocationEligible = !!t && ['transfer', 'saving'].includes(t.kind) && fundKind != null;
 
   // Справочники подгружаются один раз при первом открытии
   useEffect(() => {
@@ -181,6 +188,9 @@ function EditModal({ t, onClose }: { t: TxRow | null; onClose: () => void }) {
         ...(t.kind === 'expense' && categoryId ? { categoryId: Number(categoryId) } : {}),
         ...(accountId ? { accountId: Number(accountId) } : {}),
         ...(['transfer', 'saving'].includes(t.kind) ? { hidden } : {}),
+        ...(['transfer', 'saving'].includes(t.kind)
+          ? { fundAllocation: allocationEligible && allocation ? (fundKind as 'cap' | 'ks') : null }
+          : {}),
       });
       if (!res.ok) {
         notifications.show({ color: 'red', message: res.error });
@@ -255,6 +265,14 @@ function EditModal({ t, onClose }: { t: TxRow | null; onClose: () => void }) {
             description="Операция остаётся в ленте дня и в балансах счетов"
             checked={hidden}
             onChange={(e) => setHidden(e.currentTarget.checked)}
+          />
+        )}
+        {allocationEligible && (
+          <Checkbox
+            label={`Размещение фонда ${fundKind === 'cap' ? 'КАП' : 'КС'} — деньги остаются за фондом`}
+            description="Учитывается в сверке на странице фонда"
+            checked={allocation}
+            onChange={(e) => setAllocation(e.currentTarget.checked)}
           />
         )}
         <Group justify="space-between">

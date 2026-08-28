@@ -287,6 +287,8 @@ const updateInput = z.object({
   accountId: z.coerce.number().int().positive().nullish(),
   note: z.string().trim().max(500).nullish(),
   hidden: z.boolean().optional(),
+  // null снимает пометку «размещение фонда», отсутствие ключа — не менять
+  fundAllocation: z.enum(['cap', 'ks']).nullable().optional(),
 });
 
 export async function updateTransaction(raw: z.input<typeof updateInput>): Promise<ActionResult> {
@@ -315,6 +317,7 @@ export async function updateTransaction(raw: z.input<typeof updateInput>): Promi
         ...(input.accountId !== undefined ? { accountId: input.accountId } : {}),
         ...(input.note !== undefined ? { note: input.note || null } : {}),
         ...(input.hidden !== undefined ? { hidden: input.hidden } : {}),
+        ...(input.fundAllocation !== undefined ? { fundAllocation: input.fundAllocation } : {}),
         updatedAt: new Date(),
       })
       .where(eq(transactions.id, input.id));

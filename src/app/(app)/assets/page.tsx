@@ -147,9 +147,11 @@ function AssetTable({
               <TableTd className="money">{dateShort(a.purchaseDate)}</TableTd>
               <TableTd ta="right">
                 <Money value={a.effectivePrice} fz="sm" />
-                {a.effectivePrice !== a.initialPrice && (
-                  <Text fz="xs" c="dimmed" className="money">
-                    была {fmtMoney(a.initialPrice)}
+                {Math.abs(a.adjustmentsTotal) > 0.005 && (
+                  <Text fz="xs" c="dimmed" className="money" style={{ whiteSpace: 'nowrap' }}>
+                    {a.adjustmentsTotal < 0
+                      ? `${fmtMoney(a.initialPrice)} − продажа ${fmtMoney(-a.adjustmentsTotal)}`
+                      : `${fmtMoney(a.initialPrice)} + корректировка ${fmtMoney(a.adjustmentsTotal)}`}
                   </Text>
                 )}
               </TableTd>

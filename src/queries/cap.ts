@@ -2,7 +2,6 @@ import { sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { monthEnd, monthsBetweenInclusive, todayISO, ymAdd, ymOf } from '@/lib/dates';
 import { round2, toNum } from '@/lib/money';
-import { getSetting } from '@/queries/core';
 
 export type CapStatus = 'not_started' | 'in_progress' | 'behind' | 'waiting' | 'ready' | 'spent';
 
@@ -26,6 +25,17 @@ export type CapGoalOverview = {
   startDate: string | null;
 };
 
+export type CapAllocationMove = {
+  id: number;
+  date: string;
+  amount: number;
+  /** +1 — размещение (со счёта КАП наружу), −1 — возврат на счёт КАП */
+  direction: 1 | -1;
+  fromName: string | null;
+  toName: string | null;
+  note: string | null;
+};
+
 export type CapOverview = {
   goals: CapGoalOverview[];
   pendingPayment: { goalId: number; name: string; amount: number; monthsCount: number }[];
@@ -33,6 +43,7 @@ export type CapOverview = {
   ledgerTotal: number;
   capAccountsBalance: number;
   allocationsNet: number;
+  allocationMoves: CapAllocationMove[];
   reconciliationDiff: number;
 };
 
@@ -176,8 +187,30 @@ export async function getCapOverview(): Promise<CapOverview> {
   `);
   const capAccountsBalance = toNum((balRes.rows as any[])[0]?.s);
 
-  // размещения вводятся вручную на странице КАП (settings), приоритет за ручным
-  const allocationsNet = round2(await getSetting<number>('cap_allocations', 0));
+  // размещения считаются из операций: переводы/сбережения со счёта КАП,
+  // помеченные «размещение фонда КАП» (fund_allocation='cap'); возвраты — минус
+  const allocRes = await db.execute(sql`
+    SELECT t.id, t.date, t.amount, t.note,
+           a.name AS from_name, a.type AS from_type,
+           ca.name AS to_name
+    FROM transactions t
+    LEFT JOIN accounts a ON a.id = t.account_id
+    LEFT JOIN accounts ca ON ca.id = t.counter_account_id
+    WHERE t.fund_allocation = 'cap'
+    ORDER BY t.date DESC, t.id DESC
+  `);
+  const allocationMoves: CapAllocationMove[] = (allocRes.rows as any[]).map((r) => ({
+    id: Number(r.id),
+    date: r.date,
+    amount: toNum(r.amount),
+    direction: r.from_type === 'savings_cap' ? 1 : -1,
+    fromName: r.from_name,
+    toName: r.to_name,
+    note: r.note,
+  }));
+  const allocationsNet = round2(
+    allocationMoves.reduce((s, m) => s + m.direction * m.amount, 0),
+  );
 
   const reconciliationDiff = round2(ledgerTotal - (capAccountsBalance + allocationsNet));
 
@@ -188,6 +221,7 @@ export async function getCapOverview(): Promise<CapOverview> {
     ledgerTotal,
     capAccountsBalance,
     allocationsNet,
+    allocationMoves,
     reconciliationDiff,
   };
 }
