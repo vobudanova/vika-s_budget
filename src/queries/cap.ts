@@ -47,6 +47,64 @@ export type CapOverview = {
   reconciliationDiff: number;
 };
 
+/** План перетока накопленного удаляемой цели в остальные: заполняются самые
+    ранние незакрытые месяцы, приоритет — целям с более ранней амортизацией
+    (тот же механизм, что и у обычных перетоков); излишек сверх недоборов
+    доливается в цели с оставшейся ёмкостью до их целевых сумм. */
+export function buildRedistributionPlan(
+  goals: CapGoalOverview[],
+  excludeGoalId: number,
+  pool: number,
+  currentYm: string,
+): { goalId: number; name: string; amount: number }[] {
+  type Slot = { goalId: number; ym: string; need: number; start: string };
+  const capacity = new Map<number, number>();
+  const names = new Map<number, string>();
+  const slots: Slot[] = [];
+  for (const g of goals) {
+    if (g.id === excludeGoalId || g.status === 'spent') continue;
+    const room = round2(g.target - g.contributed);
+    if (room < 1 || g.monthly <= 0.005) continue;
+    capacity.set(g.id, room);
+    names.set(g.id, g.name);
+    const startYm = g.startDate ? ymOf(g.startDate) : (g.firstOwnYm ?? currentYm);
+    for (let i = 0; i < g.termMonths; i++) {
+      const ym = ymAdd(startYm, i);
+      const flag = g.monthsFlags[ym] ?? { amount: 0, inflow: 0, sent: false };
+      const need =
+        ym <= currentYm ? round2(g.monthly - flag.amount - flag.inflow) : g.monthly;
+      if (need > 0.005) slots.push({ goalId: g.id, ym, need, start: startYm });
+    }
+  }
+  slots.sort((a, b) => (a.ym !== b.ym ? (a.ym < b.ym ? -1 : 1) : a.start < b.start ? -1 : 1));
+  const per = new Map<number, number>();
+  let rest = pool;
+  const take = (goalId: number, want: number) => {
+    const cap = capacity.get(goalId) ?? 0;
+    const x = round2(Math.min(want, cap, rest));
+    if (x <= 0.005) return;
+    per.set(goalId, round2((per.get(goalId) ?? 0) + x));
+    capacity.set(goalId, round2(cap - x));
+    rest = round2(rest - x);
+  };
+  for (const s of slots) {
+    if (rest <= 0.005) break;
+    take(s.goalId, s.need);
+  }
+  // копеечные хвосты сверх месячной сетки — в ёмкость до целевых сумм
+  if (rest > 0.005) {
+    for (const [gid] of capacity) {
+      if (rest <= 0.005) break;
+      take(gid, rest);
+    }
+  }
+  return [...per.entries()].map(([goalId, amount]) => ({
+    goalId,
+    name: names.get(goalId) ?? '',
+    amount,
+  }));
+}
+
 export async function getCapOverview(): Promise<CapOverview> {
   const today = todayISO();
   const currentYm = ymOf(today);

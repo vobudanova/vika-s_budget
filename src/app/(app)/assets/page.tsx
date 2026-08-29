@@ -187,6 +187,7 @@ function AssetTable({
                   name={a.name}
                   disposed={!!a.disposedAt}
                   hasCap={!!a.goalId && !a.goalSpentAt}
+                  capAccumulated={a.goalContributed ?? 0}
                   accounts={accounts}
                   assetCategories={assetCategories}
                   editInit={{

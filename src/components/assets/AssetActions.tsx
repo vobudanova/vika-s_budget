@@ -30,6 +30,7 @@ import { removeCapGoalForAsset } from '@/actions/cap';
 import { todayLocalISO } from './today';
 import { PurchaseForm } from '@/components/day/PurchaseForm';
 import { confirmDanger } from '@/lib/confirm';
+import { fmtMoney } from '@/lib/money';
 
 export function NewPurchaseButton(props: {
   assetCategories: { id: number; name: string }[];
@@ -74,6 +75,7 @@ export function AssetActions({
   name,
   disposed,
   hasCap = false,
+  capAccumulated = 0,
   accounts,
   editInit,
   assetCategories = [],
@@ -82,6 +84,8 @@ export function AssetActions({
   name: string;
   disposed: boolean;
   hasCap?: boolean;
+  /** накоплено по цели КАП — при удалении перетечёт в другие цели */
+  capAccumulated?: number;
   accounts: { id: number; name: string }[];
   editInit?: AssetEditInit;
   assetCategories?: { id: number; name: string }[];
@@ -115,7 +119,10 @@ export function AssetActions({
   const removeCap = () =>
     confirmDanger({
       title: 'Отключить КАП',
-      message: `Цель КАП для «${name}» будет удалена, статус станет «не применимо». Амортизация продолжится.`,
+      message:
+        capAccumulated > 0.005
+          ? `Цель КАП для «${name}» будет удалена, амортизация продолжится. Накопленные ${fmtMoney(capAccumulated)} не пропадут — перетекут в другие цели, закрывая самые ранние незакрытые месяцы.`
+          : `Цель КАП для «${name}» будет удалена, статус станет «не применимо». Амортизация продолжится.`,
       confirmLabel: 'Отключить',
       onConfirm: () =>
         startTransition(async () => {
@@ -129,12 +136,22 @@ export function AssetActions({
   const remove = () =>
     confirmDanger({
       title: 'Удалить покупку',
-      message: `Удалить покупку «${name}» вместе с графиком амортизации и КАП?`,
+      message:
+        capAccumulated > 0.005
+          ? `Покупка «${name}», график амортизации и цель КАП будут удалены. Накопленные по цели ${fmtMoney(capAccumulated)} не пропадут — перетекут в другие цели, закрывая самые ранние незакрытые месяцы (как обычные перетоки).`
+          : `Удалить покупку «${name}» вместе с графиком амортизации и КАП?`,
       onConfirm: () =>
         startTransition(async () => {
           const res = await deleteAsset(assetId);
           notifications.show(
-            res.ok ? { message: 'Покупка удалена' } : { color: 'red', message: res.error },
+            res.ok
+              ? {
+                  message:
+                    capAccumulated > 0.005
+                      ? `Покупка удалена, ${fmtMoney(capAccumulated)} перетекли в другие цели`
+                      : 'Покупка удалена',
+                }
+              : { color: 'red', message: res.error },
           );
         }),
     });

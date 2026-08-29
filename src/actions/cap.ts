@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { db, schema } from '@/db';
 import { monthEnd, monthStart, monthsBetweenInclusive, todayISO, ymOf, isValidYM } from '@/lib/dates';
 import { fmtMoney, parseAmountExpr, round2, toNum } from '@/lib/money';
+import { buildRedistributionPlan, getCapOverview } from '@/queries/cap';
 
 const { capGoals, capMovements, transactions, accounts } = schema;
 
@@ -323,6 +324,8 @@ export async function addCapRecalc(raw: z.input<typeof recalcInput>): Promise<Ac
 // ------------------------------------------------- отключение КАП у покупки
 
 /** «Не применимо»: амортизация нужна, КАП — нет. Цель удаляется, если на ней нет накоплений. */
+/** Отключение КАП у покупки (амортизация продолжается). Накопленное — включая
+    отправленные взносы — перетекает в другие цели механизмом перетоков. */
 export async function removeCapGoalForAsset(assetId: number): Promise<ActionResult> {
   try {
     const [goal] = await db.select().from(capGoals).where(eq(capGoals.assetId, assetId)).limit(1);
@@ -331,14 +334,50 @@ export async function removeCapGoalForAsset(assetId: number): Promise<ActionResu
       .select()
       .from(capMovements)
       .where(eq(capMovements.capGoalId, goal.id));
-    const sum = round2(movements.reduce((s, m) => s + toNum(m.amount), 0));
-    if (Math.abs(sum) > 0.01) {
+    const accumulated = round2(movements.reduce((s, m) => s + toNum(m.amount), 0));
+    const today = todayISO();
+    let plan: { goalId: number; name: string; amount: number }[] = [];
+    if (accumulated > 0.005) {
+      const overview = await getCapOverview();
+      plan = buildRedistributionPlan(overview.goals, goal.id, accumulated, ymOf(today));
+      const planned = round2(plan.reduce((s, p) => s + p.amount, 0));
+      if (planned < accumulated - 0.005) {
+        return {
+          ok: false,
+          error: `В других целях свободно только ${fmtMoney(planned)} из накопленных ${fmtMoney(accumulated)} — сначала верните излишек на счёт (цель → «Потрачена» → вернуть на счёт)`,
+        };
+      }
+    } else if (accumulated < -0.005) {
       return {
         ok: false,
-        error: `На цели накоплено ${sum.toLocaleString('ru-RU')} ₽ — сначала распределите через «Потратить» на странице КАП.`,
+        error: `По цели отрицательный остаток ${fmtMoney(accumulated)} — поправьте корректировкой перед удалением`,
       };
     }
-    await db.delete(capGoals).where(eq(capGoals.id, goal.id));
+    await db.transaction(async (tx) => {
+      if (plan.length > 0) {
+        const group = randomUUID();
+        for (const p of plan) {
+          await tx.insert(capMovements).values({
+            capGoalId: goal.id,
+            date: today,
+            amount: String(-p.amount),
+            source: 'to_cap',
+            counterpartCapId: p.goalId,
+            transferGroup: group,
+          });
+          await tx.insert(capMovements).values({
+            capGoalId: p.goalId,
+            date: today,
+            amount: String(p.amount),
+            source: 'from_cap',
+            counterpartCapId: goal.id,
+            transferGroup: group,
+            note: `из удалённой «${goal.name}»`,
+          });
+        }
+      }
+      await tx.delete(capGoals).where(eq(capGoals.id, goal.id));
+    });
     revalidateAll();
     return { ok: true };
   } catch (e) {

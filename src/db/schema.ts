@@ -216,6 +216,7 @@ export const capMovements = pgTable(
     source: text('source').notNull(),
     counterpartCapId: bigint('counterpart_cap_id', { mode: 'number' }).references(
       (): any => capGoals.id,
+      { onDelete: 'set null' },
     ),
     transferGroup: uuid('transfer_group'),
     transactionId: bigint('transaction_id', { mode: 'number' }),
@@ -226,9 +227,11 @@ export const capMovements = pgTable(
       'cap_movements_source_chk',
       sql`${t.source} in ('own_funds','from_cap','to_cap','recalc','spend')`,
     ),
+    // counterpart допустим только у перетоков; NULL разрешён и у них —
+    // остаётся после удаления цели-контрагента (ON DELETE SET NULL)
     check(
       'cap_movements_counterpart_chk',
-      sql`(${t.source} in ('from_cap','to_cap')) = (${t.counterpartCapId} is not null)`,
+      sql`${t.counterpartCapId} is null or ${t.source} in ('from_cap','to_cap')`,
     ),
     index('cap_movements_goal_idx').on(t.capGoalId, t.date),
   ],

@@ -4,9 +4,11 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { randomUUID } from 'crypto';
 import { buildSchedule, capTarget } from '@/lib/amortization';
-import { parseAmountExpr, round2, toNum } from '@/lib/money';
-import { isValidISODate, monthsBetweenInclusive, ymOf } from '@/lib/dates';
+import { fmtMoney, parseAmountExpr, round2, toNum } from '@/lib/money';
+import { isValidISODate, monthsBetweenInclusive, todayISO, ymAdd, ymOf } from '@/lib/dates';
+import { buildRedistributionPlan, getCapOverview } from '@/queries/cap';
 
 const {
   assets,
@@ -310,20 +312,57 @@ export async function undisposeAsset(assetId: number): Promise<ActionResult> {
   }
 }
 
+/** Удаление покупки вместе с целью КАП. Если по цели уже есть накопления
+    (в т.ч. отправленные), они перетекают в другие цели механизмом перетоков —
+    деньги остаются за фондом, флажки-получатели темнеют перераспределением. */
 export async function deleteAsset(assetId: number): Promise<ActionResult> {
   try {
     const [goal] = await db.select().from(capGoals).where(eq(capGoals.assetId, assetId));
+    const today = todayISO();
+    let plan: { goalId: number; name: string; amount: number }[] = [];
+    let goalName = '';
     if (goal) {
+      goalName = goal.name;
       const movements = await db
-        .select({ id: schema.capMovements.id })
+        .select({ amount: schema.capMovements.amount })
         .from(schema.capMovements)
-        .where(eq(schema.capMovements.capGoalId, goal.id))
-        .limit(1);
-      if (movements.length > 0) {
-        return { ok: false, error: 'По КАП этой покупки уже есть взносы — сначала распределите их' };
+        .where(eq(schema.capMovements.capGoalId, goal.id));
+      const accumulated = round2(movements.reduce((s, m) => s + toNum(m.amount), 0));
+      if (accumulated > 0.005) {
+        const overview = await getCapOverview();
+        plan = buildRedistributionPlan(overview.goals, goal.id, accumulated, ymOf(today));
+        const planned = round2(plan.reduce((s, p) => s + p.amount, 0));
+        if (planned < accumulated - 0.005) {
+          return {
+            ok: false,
+            error: `В других целях свободно только ${fmtMoney(planned)} из накопленных ${fmtMoney(accumulated)} — сначала верните излишек на счёт (цель → «Потрачена» → вернуть на счёт)`,
+          };
+        }
       }
     }
     await db.transaction(async (tx) => {
+      if (goal && plan.length > 0) {
+        const group = randomUUID();
+        for (const p of plan) {
+          await tx.insert(schema.capMovements).values({
+            capGoalId: goal.id,
+            date: today,
+            amount: String(-p.amount),
+            source: 'to_cap',
+            counterpartCapId: p.goalId,
+            transferGroup: group,
+          });
+          await tx.insert(schema.capMovements).values({
+            capGoalId: p.goalId,
+            date: today,
+            amount: String(p.amount),
+            source: 'from_cap',
+            counterpartCapId: goal.id,
+            transferGroup: group,
+            note: `из удалённой «${goalName}»`,
+          });
+        }
+      }
       await tx
         .delete(transactions)
         .where(and(eq(transactions.assetId, assetId), eq(transactions.kind, 'purchase')));
