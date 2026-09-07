@@ -33,12 +33,22 @@
   AUTH_SECRET) и в секретах GitHub/Vercel — их задаёт Олег сам (`gh secret set`).
   Значения не выводить в логи, доки и коммиты. Пароли в формы не вводить —
   в браузер-пейн логинится Олег.
+- Дампы прод-данных не коммитить никогда (репо публичное; допустимы только
+  шифрованные); `scripts/pull-prod-db.sh` в .gitignore — так и должно остаться.
 - Фичи, удалённые по просьбе Виктории, не возвращать (список в CONVENTIONS.md).
 
 ## Быстрые факты
 
 - Стек: Next.js 16 App Router (RSC + server actions, `force-dynamic`), Mantine 9,
   Drizzle + node-postgres; локально Homebrew Postgres, прод Neon; деплой Vercel.
+- Прод: https://vika-sbudget.vercel.app. Git-интеграции Vercel НЕТ (владелец репо —
+  vobudanova, у Олега нет админки): деплой делает только
+  `.github/workflows/deploy.yml` (секрет VERCEL_TOKEN); Neon подключён
+  Vercel-интеграцией (env DATABASE_URL).
+- Проектный документ (модель данных, глоссарий, сквозные кейсы, открытые вопросы
+  №4, 8, 9, 12, 17, 20–26) — приватный артефакт Олега «Вика.Финансы»:
+  https://claude.ai/code/artifact/9062d207-0afd-4263-ab6b-d4818485645c
+  (читается инструментом Artifact; ссылка сама по себе доступа не даёт).
 - Dev-сервер: браузер-пейн `preview_start {name: "vika-pf"}` (`.claude/launch.json`),
   порт 3000 — его иногда занимает другой проект Олега.
 - Тест server actions: `DATABASE_URL=... npx tsx .tmp-*.ts` из корня проекта; ошибка
