@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { round2, toNum } from '@/lib/money';
 import { getReference } from './core';
-import type { SheetRow, SheetSection } from './month';
+import { visibleInPeriod, type SheetRow, type SheetSection } from './month';
 
 export type YearSheet = {
   sections: SheetSection[]; // days = месяцы 1..12
@@ -127,7 +127,7 @@ export async function getYearSheet(year: string): Promise<YearSheet> {
   const sections: SheetSection[] = [];
   const expenseGroups = ref.groups.filter((g) => !['Покупки', 'Амортизация', 'Поездки'].includes(g.name));
   for (const g of expenseGroups) {
-    const cats = ref.categories.filter((c) => c.groupId === g.id);
+    const cats = visibleInPeriod(ref.categories.filter((c) => c.groupId === g.id), from, to, expenseCells);
     if (cats.length === 0) continue;
     sections.push({
       key: `g${g.id}`,
@@ -143,7 +143,9 @@ export async function getYearSheet(year: string): Promise<YearSheet> {
       title: 'Покупки',
       tone: 'purchases',
       ...buildRows(
-        ref.categories.filter((c) => c.groupId === purchGroup.id).map((c) => ({ key: String(c.id), name: c.name })),
+        visibleInPeriod(ref.categories.filter((c) => c.groupId === purchGroup.id), from, to, purchaseCells).map(
+          (c) => ({ key: String(c.id), name: c.name }),
+        ),
         purchaseCells,
       ),
     });
@@ -155,7 +157,9 @@ export async function getYearSheet(year: string): Promise<YearSheet> {
       title: 'Амортизация',
       tone: 'amortization',
       ...buildRows(
-        ref.categories.filter((c) => c.groupId === amortGroup.id).map((c) => ({ key: String(c.id), name: c.name })),
+        visibleInPeriod(ref.categories.filter((c) => c.groupId === amortGroup.id), from, to, accrualCells).map(
+          (c) => ({ key: String(c.id), name: c.name }),
+        ),
         accrualCells,
       ),
     });
@@ -167,9 +171,9 @@ export async function getYearSheet(year: string): Promise<YearSheet> {
       title: 'Поездки',
       tone: 'trips',
       ...buildRows(
-        ref.categories
-          .filter((c) => c.groupId === tripGroup.id)
-          .map((c) => ({ key: String(c.id), name: c.name, pendingDelete: c.pendingDelete })),
+        visibleInPeriod(ref.categories.filter((c) => c.groupId === tripGroup.id), from, to, expenseCells).map(
+          (c) => ({ key: String(c.id), name: c.name, pendingDelete: c.pendingDelete }),
+        ),
         expenseCells,
       ),
     });
@@ -195,7 +199,10 @@ export async function getYearSheet(year: string): Promise<YearSheet> {
     key: 'ks',
     title: 'Компенсировано из КС',
     tone: 'ks',
-    ...buildRows(ref.fundCategories.map((f) => ({ key: String(f.id), name: f.name })), ksCells),
+    ...buildRows(
+      visibleInPeriod(ref.fundCategories, from, to, ksCells).map((f) => ({ key: String(f.id), name: f.name })),
+      ksCells,
+    ),
   });
   sections.push({
     key: 'savings',

@@ -36,6 +36,22 @@ export type MonthSheet = {
 
 const zeros = (n: number) => Array<number>(n + 1).fill(0);
 
+/** Строки справочника для листа периода: срок действия пересекается с периодом
+    ИЛИ в периоде по строке есть данные (страховка — суммы не выпадают из итогов).
+    Ключи `cells` — `${id}:${колонка}`. */
+export function visibleInPeriod<T extends { id: number; activeFrom: string; activeTo: string | null }>(
+  items: T[],
+  from: string,
+  to: string,
+  cells: Map<string, number>,
+): T[] {
+  const withData = new Set<string>();
+  for (const k of cells.keys()) withData.add(k.slice(0, k.lastIndexOf(':')));
+  return items.filter(
+    (c) => (c.activeFrom <= to && (!c.activeTo || c.activeTo >= from)) || withData.has(String(c.id)),
+  );
+}
+
 export async function getMonthSheet(ym: string): Promise<MonthSheet> {
   const [y, m] = ym.split('-').map(Number);
   const daysCount = daysInMonth(y, m);
@@ -128,10 +144,10 @@ export async function getMonthSheet(ym: string): Promise<MonthSheet> {
 
   const sections: SheetSection[] = [];
 
-  // Операционные группы трат — все категории, включая нулевые
+  // Операционные группы трат — все категории, действующие в этом месяце, включая нулевые
   const expenseGroups = ref.groups.filter((g) => !['Покупки', 'Амортизация', 'Поездки'].includes(g.name));
   for (const g of expenseGroups) {
-    const cats = ref.categories.filter((c) => c.groupId === g.id);
+    const cats = visibleInPeriod(ref.categories.filter((c) => c.groupId === g.id), from, to, expenseCells);
     if (cats.length === 0) continue;
     const built = buildRows(
       cats.map((c) => ({ key: String(c.id), name: c.name, pendingDelete: c.pendingDelete })),
@@ -143,7 +159,7 @@ export async function getMonthSheet(ym: string): Promise<MonthSheet> {
   // Покупки (фактический метод)
   const purchGroup = ref.groups.find((g) => g.name === 'Покупки');
   if (purchGroup) {
-    const cats = ref.categories.filter((c) => c.groupId === purchGroup.id);
+    const cats = visibleInPeriod(ref.categories.filter((c) => c.groupId === purchGroup.id), from, to, purchaseCells);
     sections.push({
       key: 'purchases',
       title: 'Покупки',
@@ -155,7 +171,7 @@ export async function getMonthSheet(ym: string): Promise<MonthSheet> {
   // Амортизация (начисленный метод)
   const amortGroup = ref.groups.find((g) => g.name === 'Амортизация');
   if (amortGroup) {
-    const cats = ref.categories.filter((c) => c.groupId === amortGroup.id);
+    const cats = visibleInPeriod(ref.categories.filter((c) => c.groupId === amortGroup.id), from, to, accrualCells);
     sections.push({
       key: 'amortization',
       title: 'Амортизация',
@@ -167,7 +183,7 @@ export async function getMonthSheet(ym: string): Promise<MonthSheet> {
   // Поездки
   const tripGroup = ref.groups.find((g) => g.name === 'Поездки');
   if (tripGroup) {
-    const cats = ref.categories.filter((c) => c.groupId === tripGroup.id);
+    const cats = visibleInPeriod(ref.categories.filter((c) => c.groupId === tripGroup.id), from, to, expenseCells);
     sections.push({
       key: 'trips',
       title: 'Поездки',
@@ -195,13 +211,13 @@ export async function getMonthSheet(ym: string): Promise<MonthSheet> {
     ...buildRows(transferRows, transferCells),
   });
 
-  // Компенсировано из КС — все статьи фонда
+  // Компенсировано из КС — статьи фонда, действующие в этом месяце
   sections.push({
     key: 'ks',
     title: 'Компенсировано из КС',
     tone: 'ks',
     ...buildRows(
-      ref.fundCategories.map((f) => ({ key: String(f.id), name: f.name })),
+      visibleInPeriod(ref.fundCategories, from, to, ksCells).map((f) => ({ key: String(f.id), name: f.name })),
       ksCells,
     ),
   });

@@ -4,8 +4,6 @@ import { todayISO, ymOf } from '@/lib/dates';
 import { AnalyticsNav } from '@/components/analytics/AnalyticsNav';
 import {
   FillWidget,
-  InflationWidget,
-  MomWidget,
   SavingsNextWidget,
   TrendWidget,
   WidgetSkeleton,
@@ -28,9 +26,6 @@ export default function AnalyticsTrendsPage() {
       <Suspense fallback={<WidgetSkeleton chart={240} lines={0} />}>
         <TrendWidget ym={ym} />
       </Suspense>
-      <Suspense fallback={<WidgetSkeleton lines={2} />}>
-        <MomWidget ym={ym} />
-      </Suspense>
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
         <Suspense fallback={<WidgetSkeleton lines={4} />}>
           <SavingsNextWidget />
@@ -38,9 +33,6 @@ export default function AnalyticsTrendsPage() {
       </SimpleGrid>
       <Suspense fallback={<WidgetSkeleton chart={90} lines={4} />}>
         <FillWidget />
-      </Suspense>
-      <Suspense fallback={<WidgetSkeleton chart={200} lines={2} />}>
-        <InflationWidget ym={ym} />
       </Suspense>
     </Stack>
   );

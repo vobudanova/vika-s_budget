@@ -1,4 +1,4 @@
-import { Badge, Card, Group, SimpleGrid, Skeleton, Stack, Text, Tooltip } from '@mantine/core';
+import { Card, Group, Skeleton, Stack, Text } from '@mantine/core';
 import { CardLabel } from '@/components/CardLabel';
 import { Money } from '@/components/Money';
 import {
@@ -6,15 +6,13 @@ import {
   getForecastWidget,
   getFundsWidget,
   getHygieneWidget,
-  getInflationWidget,
   getAnomalies,
   getCapMonths,
   getFillWidget,
-  getMomMonths,
   getSavingsNext,
   getTrendSeries,
 } from '@/queries/analytics-widgets';
-import { FillYearsBrowser, InflationChart } from './widget-charts';
+import { FillYearsBrowser } from './widget-charts';
 import { TrendCard } from './AnalyticsView';
 import { fmtMoney, fmtMoneyExact } from '@/lib/money';
 
@@ -46,30 +44,6 @@ export function WidgetSkeleton({ lines = 4, chart = 0 }: { lines?: number; chart
         {Array.from({ length: lines }, (_, i) => (
           <Skeleton key={i} height={13} width={`${90 - i * 12}%`} />
         ))}
-      </Stack>
-    </Card>
-  );
-}
-
-// ------------------------------------------------------------ инфляция
-
-export async function InflationWidget({ ym }: { ym: string }) {
-  const d = await getInflationWidget(ym);
-  return (
-    <Card>
-      <Stack gap="sm">
-        <CardLabel>Личная инфляция · средний чек</CardLabel>
-        {d.categories.length === 0 ? (
-          <Text fz="sm" c="dimmed">
-            Пока мало операций, чтобы считать средние чеки.
-          </Text>
-        ) : (
-          <InflationChart
-            series={d.series}
-            names={d.categories.map((c) => c.name)}
-            changes={Object.fromEntries(d.categories.map((c) => [c.name, c.change]))}
-          />
-        )}
       </Stack>
     </Card>
   );
@@ -470,54 +444,5 @@ export async function AnomaliesWidget({ ym }: { ym: string }) {
         )}
       </Stack>
     </Card>
-  );
-}
-
-// ------------------------------------------------------- месяц к месяцу
-
-export async function MomWidget({ ym }: { ym: string }) {
-  const months = await getMomMonths(ym);
-  return (
-    <SimpleGrid cols={{ base: 1, xs: 2, md: 3 }} spacing="xs">
-      {months.map((m) => (
-        <Card key={m.ym} padding="sm">
-          <Stack gap={4}>
-            <Text fz="xs" fw={700} tt="uppercase" c="dimmed" lts="0.04em">
-              {m.label}
-            </Text>
-            <Stack gap={2}>
-              {m.rows.map((r) => (
-                <Group key={r.name} justify="space-between" wrap="nowrap" gap="xs">
-                  <Text fz="xs" truncate>
-                    {r.name}
-                  </Text>
-                  <Tooltip
-                    label={`${money0(r.current)} против ${money0(r.prev)} в ${m.prevLabel}`}
-                    openDelay={150}
-                  >
-                    {r.pct !== null ? (
-                      <Text
-                        fz="xs"
-                        fw={600}
-                        className="money"
-                        c={r.pct > 0 ? 'red.7' : r.pct < 0 ? 'teal.8' : 'gray.5'}
-                        style={{ flexShrink: 0 }}
-                      >
-                        {r.pct > 0 ? '+' : ''}
-                        {r.pct}%
-                      </Text>
-                    ) : (
-                      <Text fz="xs" c="gray.4" style={{ flexShrink: 0 }}>
-                        —
-                      </Text>
-                    )}
-                  </Tooltip>
-                </Group>
-              ))}
-            </Stack>
-          </Stack>
-        </Card>
-      ))}
-    </SimpleGrid>
   );
 }

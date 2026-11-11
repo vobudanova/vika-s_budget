@@ -12,58 +12,6 @@ function monthsBack(ym: string, n: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
-// ------------------------------------------------------------ инфляция
-
-export type InflationWidgetData = {
-  categories: { name: string; change: number | null }[]; // топ по числу операций
-  series: Record<string, string | number | null>[]; // label + значения по категориям
-};
-
-export async function getInflationWidget(ym: string): Promise<InflationWidgetData> {
-  // топ-6 категорий, где средний чек осмыслен: много операций за год
-  const catsRes = await db.execute(sql`
-    SELECT c.id, c.name, count(*) AS n
-    FROM v_expenses_actual v JOIN categories c ON c.id = v.category_id
-    WHERE v.src = 'expense' AND v.date >= ${monthsBack(ym, 11)} AND v.date <= ${monthEnd(ym)}
-      AND v.amount > 0
-    GROUP BY 1, 2 HAVING count(*) >= 12
-    ORDER BY 3 DESC LIMIT 6
-  `);
-  const cats = (catsRes.rows as any[]).map((r) => ({ id: Number(r.id), name: String(r.name) }));
-  if (cats.length === 0) return { categories: [], series: [] };
-
-  const res = await db.execute(sql`
-    SELECT v.category_id, to_char(date_trunc('month', v.date), 'YYYY-MM') AS ym, avg(v.amount) AS a
-    FROM v_expenses_actual v
-    WHERE v.src = 'expense' AND v.category_id IN (${sql.join(cats.map((c) => sql`${c.id}`), sql`, `)})
-      AND v.date >= ${monthsBack(ym, 11)} AND v.date <= ${monthEnd(ym)} AND v.amount > 0
-    GROUP BY 1, 2 ORDER BY 2
-  `);
-  const byCat = new Map<number, Map<string, number>>();
-  const yms = new Set<string>();
-  for (const r of res.rows as any[]) {
-    const cid = Number(r.category_id);
-    yms.add(String(r.ym));
-    const m = byCat.get(cid) ?? new Map();
-    m.set(String(r.ym), round2(toNum(r.a)));
-    byCat.set(cid, m);
-  }
-  const ymsSorted = [...yms].sort();
-  const series = ymsSorted.map((m) => {
-    const row: Record<string, string | number | null> = { label: label(m) };
-    for (const c of cats) row[c.name] = byCat.get(c.id)?.get(m) ?? null;
-    return row;
-  });
-  const categories = cats.map((c) => {
-    const vals = ymsSorted.map((m) => byCat.get(c.id)?.get(m)).filter((v): v is number => !!v && v > 0);
-    return {
-      name: c.name,
-      change: vals.length >= 3 ? Math.round(((vals[vals.length - 1] - vals[0]) / vals[0]) * 100) : null,
-    };
-  });
-  return { categories, series };
-}
-
 // ------------------------------------------------------------ прогнозы
 
 export type ForecastWidgetData = {
@@ -560,54 +508,6 @@ export async function getSavingsNext(): Promise<SavingsNextData> {
     capMonthly: round2(toNum((capRes.rows as any[])[0]?.s)),
     ksMonthly: round2(toNum((ksRes.rows as any[])[0]?.s)),
   };
-}
-
-// ------------------------------------------------------- месяц к месяцу
-
-export type MomMonthRow = { name: string; pct: number | null; current: number; prev: number };
-export type MomMonth = { ym: string; label: string; prevLabel: string; rows: MomMonthRow[] };
-
-const MOM_NAMES = ['Питание', 'Красота', 'Транспорт', 'Бабушки', 'Прочее', 'Покупки', 'Амортизация', 'Поездки'];
-
-/** Шесть последних месяцев, в каждом — одинаковый набор категорий
-    с процентом к предыдущему месяцу. */
-export async function getMomMonths(ym: string): Promise<MomMonth[]> {
-  const COUNT = 6;
-  const from = monthsBack(ym, COUNT + 1); // +1 месяц для базы сравнения самого старого
-  const [grpRes, amortRes] = await Promise.all([
-    db.execute(sql`
-      SELECT cg.name, to_char(date_trunc('month', v.date), 'YYYY-MM') AS ym, sum(v.amount) AS s
-      FROM v_expenses_actual v JOIN category_groups cg ON cg.id = v.group_id
-      WHERE v.date >= ${from} AND v.date <= ${monthEnd(ym)}
-      GROUP BY 1, 2
-    `),
-    db.execute(sql`
-      SELECT to_char(date_trunc('month', date), 'YYYY-MM') AS ym, sum(amount) AS s
-      FROM v_expenses_accrued WHERE src = 'amortization'
-        AND date >= ${from} AND date <= ${monthEnd(ym)}
-      GROUP BY 1
-    `),
-  ]);
-  const val = new Map<string, number>();
-  for (const r of grpRes.rows as any[]) val.set(`${r.name}:${r.ym}`, toNum(r.s));
-  for (const r of amortRes.rows as any[]) val.set(`Амортизация:${r.ym}`, toNum(r.s));
-
-  const months: MomMonth[] = [];
-  for (let i = 0; i < COUNT; i++) {
-    const cur = monthsBack(ym, i + 1).slice(0, 7);
-    const prev = monthsBack(ym, i + 2).slice(0, 7);
-    months.push({
-      ym: cur,
-      label: `${RU_MONTHS[Number(cur.slice(5, 7)) - 1].toLowerCase()} ${cur.slice(0, 4)}`,
-      prevLabel: RU_MONTHS[Number(prev.slice(5, 7)) - 1].toLowerCase().slice(0, 3),
-      rows: MOM_NAMES.map((name) => {
-        const c = round2(val.get(`${name}:${cur}`) ?? 0);
-        const p = round2(val.get(`${name}:${prev}`) ?? 0);
-        return { name, pct: p > 0 ? Math.round(((c - p) / p) * 100) : null, current: c, prev: p };
-      }),
-    });
-  }
-  return months.reverse(); // слева сверху самый ранний, справа снизу текущий
 }
 
 // ------------------------------------------------ накопительная за год
